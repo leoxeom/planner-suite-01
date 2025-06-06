@@ -1,0 +1,263 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-primary: 0 127 255;    /* #007FFF */
+    --color-secondary: 247 39 152; /* #F72798 */
+    --color-accent: 255 107 87;    /* #FF6B57 */
+    --global-border-radius: 12px;
+  }
+
+  body {
+    @apply font-body text-dark-200;
+    background-image: radial-gradient(circle at center, #1C160C, #0A0A0A); /* Initial amber theme */
+    transition: background-image 0.5s ease-in-out;
+  }
+
+  body[data-theme="stage"] {
+    background-image: radial-gradient(circle at center, #1A1A2E, #0A0A1A);
+  }
+
+  /* Typography */
+  h1, h2, .cta {
+    @apply font-display uppercase tracking-wider;
+  }
+
+  h3, h4, label, .field-label {
+    @apply font-heading font-semibold;
+  }
+
+  .placeholder {
+    @apply font-heading font-normal;
+  }
+
+  /* Text sizes */
+  h1 { @apply text-4xl md:text-5xl tracking-wide; }
+  h2 { @apply text-3xl md:text-4xl tracking-wide; }
+  h3 { @apply text-2xl md:text-3xl; }
+  h4 { @apply text-xl md:text-2xl; }
+  
+  /* Glass effect base */
+  .glass {
+    @apply bg-glass-dark backdrop-blur-[22px] backdrop-saturate-[160%];
+    @apply border border-[rgba(202,168,112,0.25)]; /* Initial amber theme */
+    @apply shadow-glass-dark;
+    background-image: linear-gradient(135deg, rgba(50, 40, 25, 0.45), rgba(28, 22, 12, 0.35));
+    border-radius: var(--global-border-radius);
+    transition: all 0.3s ease-in-out;
+  }
+
+  .glass[data-theme="stage"] {
+    @apply border-[rgba(0,127,255,0.25)];
+    background-image: linear-gradient(135deg, rgba(26, 26, 46, 0.45), rgba(10, 10, 26, 0.35));
+  }
+
+  /* Glass Sidebar */
+  .glass-sidebar {
+    @apply bg-glass-dark backdrop-blur-[22px] backdrop-saturate-[160%];
+    @apply border-r border-[rgba(220,220,255,0.08)];
+    @apply shadow-glass-dark;
+  }
+
+  /* Tooltip */
+  .tooltip-container {
+    position: relative;
+  }
+
+  .tooltip {
+    position: absolute;
+    right: 0;
+    top: 100%;
+    margin-top: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background-color: theme('colors.dark.800');
+    color: white;
+    font-size: 0.875rem;
+    border-radius: 0.5rem;
+    white-space: nowrap;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 200ms;
+    z-index: 10;
+  }
+
+  .tooltip-container:hover .tooltip {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  .tooltip::before {
+    content: '';
+    position: absolute;
+    top: -0.5rem;
+    right: 0.5rem;
+    border: 0.5rem solid transparent;
+    border-bottom-color: theme('colors.dark.800');
+  }
+
+  /* Neon Button */
+  .btn-neon {
+    @apply font-display uppercase tracking-wider;
+    @apply bg-gradient-to-r from-amber/90 to-amber-dark/90;
+    @apply text-white shadow-neon-amber;
+    @apply hover:shadow-[0_0_20px_7px_rgba(255,191,0,0.25),0_0_40px_15px_rgba(255,191,0,0.2)];
+    @apply transition-all duration-300;
+    @apply hover:scale-[1.02] active:scale-[0.98];
+    @apply border border-white/10;
+    border-radius: var(--global-border-radius);
+  }
+
+  .btn-neon[data-theme="stage"] {
+    @apply bg-gradient-to-r from-primary/90 to-primary-600/90;
+    @apply shadow-neon-blue;
+    @apply hover:shadow-[0_0_20px_7px_rgba(0,127,255,0.25),0_0_40px_15px_rgba(0,127,255,0.2)];
+  }
+
+  /* Planner Icons Animation */
+  .planner-icon {
+    @apply transition-all duration-300;
+  }
+
+  .planner-icon-stage {
+    @apply text-primary-DEFAULT;
+  }
+
+  .planner-icon-bar {
+    @apply text-secondary-DEFAULT;
+  }
+
+  .planner-icon-clean {
+    @apply text-success-DEFAULT;
+  }
+
+  .planner-icon-secure {
+    @apply text-accent-DEFAULT;
+  }
+
+  .planner-icon-glow {
+    animation: planner-glow 4s ease-in-out infinite;
+  }
+  /* Calendar Event Base Styles */
+  .calendar-event {
+    @apply relative overflow-hidden;
+    @apply border border-white/10;
+    @apply transition-all duration-300;
+    border-radius: var(--global-border-radius);
+  }
+
+  .calendar-event-draft {
+    @apply bg-gradient-to-r from-dark-700/60 to-dark-800/60;
+    @apply border-dark-600/30;
+    @apply shadow-[0_0_5px_rgba(160,168,192,0.05)];
+  }
+
+  .calendar-event-published {
+    @apply bg-gradient-to-r from-amber-600/60 to-amber-500/60;
+    @apply border-amber-500/30;
+    @apply shadow-[0_0_5px_rgba(255,184,0,0.1)];
+  }
+
+  .calendar-event-complete {
+    @apply bg-gradient-to-r from-emerald-700/60 to-emerald-600/60;
+    @apply border-emerald-500/30;
+    @apply shadow-[0_0_5px_rgba(0,204,102,0.1)];
+  }
+
+  .calendar-event-canceled {
+    @apply bg-gradient-to-r from-rose-700/60 to-rose-600/60;
+    @apply border-rose-500/30;
+    @apply shadow-[0_0_5px_rgba(255,59,59,0.1)];
+  }
+}
+
+@layer components {
+  /* Background Orbs */
+  .orb {
+    @apply fixed pointer-events-none opacity-[0.08] blur-[120px];
+    @apply transition-all duration-[3000ms];
+  }
+
+  .orb-primary {
+    @apply bg-primary/30 animate-orb-float-1;
+    width: 60vw;
+    height: 60vw;
+    top: -20%;
+    left: -20%;
+  }
+
+  .orb-secondary {
+    @apply bg-secondary/20 animate-orb-float-2;
+    width: 50vw;
+    height: 50vw;
+    bottom: -10%;
+    right: -10%;
+  }
+
+  /* Grid overlay */
+  .grid-overlay {
+    @apply fixed inset-0 pointer-events-none opacity-[0.02];
+    background-image: linear-gradient(to right, #fff 1px, transparent 1px),
+                      linear-gradient(to bottom, #fff 1px, transparent 1px);
+    background-size: 50px 50px;
+  }
+
+  /* Calendar Customization */
+  .calendar-custom .rbc-event {
+    @apply calendar-event;
+  }
+
+  .calendar-custom .rbc-event.event-draft {
+    @apply calendar-event-draft;
+  }
+
+  .calendar-custom .rbc-event.event-published {
+    @apply calendar-event-published;
+  }
+
+  .calendar-custom .rbc-event.event-complete {
+    @apply calendar-event-complete;
+  }
+
+  .calendar-custom .rbc-event.event-canceled {
+    @apply calendar-event-canceled;
+  }
+
+  .calendar-custom .rbc-today {
+    @apply bg-primary/5;
+  }
+
+  .calendar-custom .rbc-off-range-bg {
+    @apply bg-dark-800/30;
+  }
+
+  .calendar-custom .rbc-header {
+    @apply font-heading text-sm py-3 border-dark-700/30;
+  }
+
+  .calendar-custom .rbc-month-view {
+    @apply border-dark-700/30 rounded-lg overflow-hidden;
+  }
+
+  .calendar-custom .rbc-month-row {
+    @apply border-dark-700/30;
+  }
+
+  .calendar-custom .rbc-day-bg {
+    @apply border-dark-700/30;
+  }
+
+  .calendar-custom .rbc-off-range {
+    @apply text-dark-500;
+  }
+
+  .calendar-custom .rbc-show-more {
+    @apply text-primary hover:text-primary/80 transition-colors;
+    @apply bg-transparent font-medium;
+  }
+
+  .calendar-custom .rbc-event-content {
+    @apply px-2 py-1 text-sm font-medium;
+  }
+}
