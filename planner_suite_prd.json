@@ -1,0 +1,584 @@
+{
+  "metadata": {
+    "title": "PLANNER Suite - Product Requirements Document (PRD)",
+    "version": "1.0",
+    "date": "2025-06-05",
+    "author": "Emma - Product Manager",
+    "status": "Draft",
+    "language": "Français"
+  },
+  "executive_summary": {
+    "product_name": "PLANNER Suite",
+    "tagline": "Suite complète de gestion et planification pour professionnels",
+    "vision": "Devenir la référence en matière de solutions de planification intelligente pour les professionnels de différents secteurs",
+    "mission": "Simplifier et optimiser la gestion des équipes, événements et rendez-vous grâce à une technologie innovante et une expérience utilisateur exceptionnelle",
+    "key_metrics": {
+      "target_market_size": "22.3 milliards USD d'ici 2032 (marché logiciels événementiels)",
+      "growth_rate": "10-13% TCAC",
+      "target_users": "10,000+ utilisateurs actifs en 24 mois"
+    }
+  },
+  "product_overview": {
+    "description": "PLANNER Suite est une plateforme modulaire de gestion et planification conçue pour répondre aux besoins spécifiques de différents secteurs professionnels. Elle combine une interface futuriste 'Cyber Cristal Néon' avec des fonctionnalités avancées de gestion d'équipes, événements et rendez-vous.",
+    "value_proposition": [
+      "Simplification de la coordination complexe des équipes intermittentes",
+      "Automatisation intelligente des processus de planification",
+      "Interface utilisateur immersive et addictive inspirée du gaming",
+      "Intégration IA vocale pour prise de rendez-vous automatisée",
+      "Centralisation de tous les besoins de planification professionnelle"
+    ],
+    "core_modules": {
+      "stageplanner": {
+        "name": "STAGEPLANNER",
+        "slogan": "Focus on the essential",
+        "primary_color": "Bleu Électrique",
+        "secondary_color": "Magenta/Rose Fluo",
+        "target_users": "Intermittents du spectacle et leurs régisseurs",
+        "core_value": "Optimiser la gestion des équipes d'intermittents du spectacle"
+      },
+      "lifeplanner": {
+        "name": "LIFEPLANNER",
+        "description": "Module transversal de gestion personnelle",
+        "features": ["Calendrier personnel", "Gestionnaire de tâches", "Rappels intelligents", "Intégration événements professionnels"]
+      },
+      "commercants_planner": {
+        "name": "COMMERÇANTS PLANNER",
+        "target_users": "Professions libérales, commerçants (coiffeurs, médecins, etc.)",
+        "key_feature": "IA Vocale pour prise de RDV téléphonique automatisée"
+      }
+    }
+  },
+  "user_personas": {
+    "regisseur_spectacle": {
+      "name": "Marc Dubois",
+      "age": 45,
+      "role": "Régisseur Général",
+      "company": "Théâtre Municipal",
+      "experience": "15 ans dans l'événementiel",
+      "pain_points": [
+        "Gestion complexe des disponibilités d'équipes variables",
+        "Communication dispersée avec les intermittents",
+        "Paperasse administrative chronophage",
+        "Difficultés à prévoir les remplacements de dernière minute"
+      ],
+      "goals": [
+        "Centraliser la gestion de ses équipes",
+        "Réduire le temps administratif",
+        "Améliorer la communication avec les intermittents",
+        "Anticiper les besoins en personnel"
+      ],
+      "tech_comfort": "Intermédiaire",
+      "devices": ["Ordinateur portable", "Smartphone"],
+      "key_features_needed": ["Calendrier centralisé", "Gestion des contrats", "Communication directe"]
+    },
+    "intermittent_spectacle": {
+      "name": "Sophie Martin",
+      "age": 32,
+      "role": "Technicienne Son",
+      "experience": "8 ans comme intermittente",
+      "pain_points": [
+        "Jonglage entre plusieurs employeurs",
+        "Manque de visibilité sur les plannings futurs",
+        "Difficultés à gérer les disponibilités",
+        "Communication fragmentée avec les régisseurs"
+      ],
+      "goals": [
+        "Avoir une vue claire de ses engagements",
+        "Simplifier la communication de ses disponibilités",
+        "Accéder facilement aux informations techniques",
+        "Gérer son planning personnel"
+      ],
+      "tech_comfort": "Élevé",
+      "devices": ["Smartphone", "Tablette", "Ordinateur"],
+      "key_features_needed": ["App mobile", "Notifications push", "Calendrier synchronisé"]
+    },
+    "professionnel_liberal": {
+      "name": "Dr. Amélie Rousseau",
+      "age": 38,
+      "role": "Médecin Généraliste",
+      "practice_size": "Cabinet individuel",
+      "patients_per_week": "120-150",
+      "pain_points": [
+        "Interruptions constantes pour prendre des RDV par téléphone",
+        "Créneaux non optimisés avec des trous dans l'agenda",
+        "Patients qui ne se présentent pas sans prévenir",
+        "Gestion manuelle des rappels et confirmations"
+      ],
+      "goals": [
+        "Automatiser la prise de RDV",
+        "Optimiser le remplissage de l'agenda",
+        "Réduire les no-shows",
+        "Se concentrer sur les soins"
+      ],
+      "tech_comfort": "Intermédiaire",
+      "devices": ["Ordinateur cabinet", "Smartphone"],
+      "key_features_needed": ["IA vocale", "Intégration agenda", "Rappels automatiques"]
+    }
+  },
+  "product_goals": {
+    "primary_goals": [
+      {
+        "goal": "Simplifier la gestion des équipes intermittentes",
+        "description": "Centraliser et automatiser la coordination des équipes variables dans le secteur du spectacle et de l'événementiel",
+        "success_metrics": ["Réduction de 60% du temps de planification", "Augmentation de 40% de la satisfaction des régisseurs"]
+      },
+      {
+        "goal": "Automatiser la prise de rendez-vous professionnels",
+        "description": "Intégrer une IA vocale pour gérer automatiquement les demandes de RDV téléphoniques",
+        "success_metrics": ["95% de précision dans la prise de RDV", "Réduction de 80% des interruptions"]
+      },
+      {
+        "goal": "Créer une expérience utilisateur immersive et addictive",
+        "description": "Développer une interface futuriste 'Cyber Cristal Néon' inspirée du gaming pour engager les utilisateurs",
+        "success_metrics": ["Temps d'utilisation moyen > 45 min/jour", "Taux de rétention > 85% à 6 mois"]
+      }
+    ],
+    "business_objectives": [
+      "Capturer 5% du marché français de gestion événementielle d'ici 2027",
+      "Atteindre 10,000 utilisateurs actifs en 24 mois",
+      "Générer 2M€ de revenus récurrents annuels d'ici 2026",
+      "Établir des partenariats avec 50+ structures culturelles majeures"
+    ]
+  },
+  "user_stories": [
+    {
+      "id": "US001",
+      "persona": "Régisseur spectacle",
+      "story": "En tant que régisseur général, je veux centraliser la gestion de toutes mes équipes intermittentes afin de réduire le temps passé en coordination administrative et me concentrer sur la qualité artistique des productions.",
+      "acceptance_criteria": [
+        "Je peux voir en un coup d'œil les disponibilités de tous mes intermittents",
+        "Je peux assigner automatiquement les bonnes compétences aux bons événements",
+        "Je reçois des alertes en cas de conflit de planning",
+        "Je peux générer les contrats de travail en un clic"
+      ],
+      "priority": "P0"
+    },
+    {
+      "id": "US002",
+      "persona": "Intermittent spectacle",
+      "story": "En tant qu'intermittente du spectacle, je veux avoir une vision claire de tous mes engagements professionnels afin de mieux organiser ma vie personnelle et maximiser mes revenus.",
+      "acceptance_criteria": [
+        "Je peux consulter mon planning sur mobile en temps réel",
+        "Je reçois des notifications pour les nouvelles propositions",
+        "Je peux bloquer/débloquer mes disponibilités facilement",
+        "Je peux voir mes revenus prévisionnels mensuels"
+      ],
+      "priority": "P0"
+    },
+    {
+      "id": "US003",
+      "persona": "Professionnel libéral",
+      "story": "En tant que médecin généraliste, je veux que mes patients puissent prendre rendez-vous automatiquement par téléphone afin de ne plus être interrompue pendant les consultations.",
+      "acceptance_criteria": [
+        "L'IA vocale répond aux appels 24h/24 avec un ton professionnel",
+        "Le système propose automatiquement les créneaux disponibles",
+        "Les RDV sont confirmés par SMS au patient",
+        "Je peux paramétrer les types de consultations et leurs durées"
+      ],
+      "priority": "P0"
+    },
+    {
+      "id": "US004",
+      "persona": "Tous utilisateurs",
+      "story": "En tant qu'utilisateur de PLANNER Suite, je veux bénéficier d'une expérience visuelle immersive et moderne afin de prendre plaisir à utiliser l'outil quotidiennement.",
+      "acceptance_criteria": [
+        "L'interface utilise le thème 'Cyber Cristal Néon' de manière cohérente",
+        "Les transitions et animations sont fluides",
+        "Les éléments interactifs donnent un feedback visuel immédiat",
+        "L'interface s'adapte parfaitement aux différentes tailles d'écran"
+      ],
+      "priority": "P1"
+    },
+    {
+      "id": "US005",
+      "persona": "Gestionnaire équipe",
+      "story": "En tant que gestionnaire d'équipe, je veux pouvoir planifier des événements complexes avec plusieurs phases afin d'optimiser l'utilisation de mes ressources humaines.",
+      "acceptance_criteria": [
+        "Je peux créer des événements multi-phases (montage, spectacle, démontage)",
+        "Je peux définir les compétences requises pour chaque phase",
+        "Le système me suggère les meilleures équipes disponibles",
+        "Je peux visualiser les coûts prévisionnels en temps réel"
+      ],
+      "priority": "P1"
+    }
+  ],
+  "competitive_analysis": {
+    "market_overview": {
+      "market_size": "22.3 milliards USD d'ici 2032 (marché logiciels événementiels)",
+      "growth_rate": "10-13% TCAC",
+      "key_trends": [
+        "Adoption croissante des événements hybrides (48% des formats en 2024)",
+        "Intégration IA vocale pour automatisation",
+        "Solutions cloud évolutives privilégiées",
+        "78% des organisateurs utilisent des plateformes numériques"
+      ]
+    },
+    "competitors": [
+      {
+        "name": "EventSoft®",
+        "category": "Gestion événementielle complète",
+        "target_market": "Professionnels événementiel",
+        "strengths": [
+          "Gestion complète des prestations événementielles",
+          "Automatisation DPAE et contrats",
+          "Centralisation RH et logistique"
+        ],
+        "weaknesses": [
+          "Interface peu moderne",
+          "Pas d'IA vocale",
+          "Courbe d'apprentissage élevée"
+        ],
+        "pricing": "Sur devis - Premium",
+        "market_position": [0.7, 0.6]
+      },
+      {
+        "name": "#DIESE",
+        "category": "Spectacle vivant spécialisé",
+        "target_market": "Théâtres et structures culturelles",
+        "strengths": [
+          "Spécialisé spectacle vivant",
+          "Signature électronique intégrée",
+          "Communication multi-canaux"
+        ],
+        "weaknesses": [
+          "Niche marché restreint",
+          "Pas de modules transversaux",
+          "Interface traditionnelle"
+        ],
+        "pricing": "Moyen",
+        "market_position": [0.5, 0.7]
+      },
+      {
+        "name": "Doctolib",
+        "category": "Prise RDV médical",
+        "target_market": "Professionnels santé",
+        "strengths": [
+          "Leader marché médical français",
+          "Interface utilisateur excellente",
+          "Réduction 65% temps secrétariat"
+        ],
+        "weaknesses": [
+          "Spécialisé uniquement médical",
+          "Pas d'IA vocale",
+          "Pas de gestion événementielle"
+        ],
+        "pricing": "Freemium vers Premium",
+        "market_position": [0.9, 0.8]
+      },
+      {
+        "name": "AirAgent",
+        "category": "IA vocale RDV",
+        "target_market": "Tous secteurs",
+        "strengths": [
+          "IA vocale 24h/24",
+          "Intégrations multiples",
+          "Automatisation complète"
+        ],
+        "weaknesses": [
+          "Pas de gestion événementielle",
+          "Jeune sur le marché",
+          "Fonctionnalités limitées"
+        ],
+        "pricing": "SaaS mensuel",
+        "market_position": [0.4, 0.5]
+      },
+      {
+        "name": "Notion",
+        "category": "Productivité tout-en-un",
+        "target_market": "Professionnels et équipes",
+        "strengths": [
+          "Flexibilité extrême",
+          "Interface moderne",
+          "Collaboration avancée"
+        ],
+        "weaknesses": [
+          "Complexité de configuration",
+          "Pas spécialisé événementiel",
+          "Courbe d'apprentissage"
+        ],
+        "pricing": "11.50€/mois",
+        "market_position": [0.6, 0.7]
+      },
+      {
+        "name": "Fantastical",
+        "category": "Calendrier avancé",
+        "target_market": "Utilisateurs individuels",
+        "strengths": [
+          "Traitement langage naturel",
+          "Interface intuitive",
+          "Intégrations seamless"
+        ],
+        "weaknesses": [
+          "Axé individuel uniquement",
+          "Pas de gestion d'équipes",
+          "Prix élevé pour fonctionnalités"
+        ],
+        "pricing": "4.99€/mois",
+        "market_position": [0.3, 0.8]
+      },
+      {
+        "name": "Asana",
+        "category": "Gestion projets/équipes",
+        "target_market": "Équipes professionnelles",
+        "strengths": [
+          "Gestion équipes robuste",
+          "Fonctionnalités collaboration",
+          "Intégrations nombreuses"
+        ],
+        "weaknesses": [
+          "Pas spécialisé événementiel",
+          "Interface complexe",
+          "Prix élevé pour PME"
+        ],
+        "pricing": "13.49€/mois",
+        "market_position": [0.8, 0.6]
+      }
+    ],
+    "competitive_positioning": {
+      "our_position": [0.5, 0.9],
+      "differentiation_factors": [
+        "Seule solution combinant événementiel + IA vocale + interface gaming",
+        "Approche modulaire adaptable à différents secteurs",
+        "Expérience utilisateur immersive 'Cyber Cristal Néon'",
+        "Spécialisation intermittents du spectacle unique",
+        "Prix compétitif avec valeur ajoutée forte"
+      ]
+    }
+  },
+  "technical_specifications": {
+    "architecture": {
+      "frontend": {
+        "framework": "React 18+",
+        "styling": "Tailwind CSS avec thème personnalisé 'Cyber Cristal Néon'",
+        "state_management": "Zustand pour la gestion d'état globale",
+        "routing": "React Router v6",
+        "ui_library": "Components custom avec Framer Motion pour animations",
+        "responsive": "Mobile-first design avec breakpoints adaptatifs"
+      },
+      "backend": {
+        "platform": "Supabase (Backend-as-a-Service)",
+        "database": "PostgreSQL hébergé par Supabase",
+        "authentication": "Supabase Auth avec multi-providers",
+        "real_time": "Supabase Realtime pour synchronisation temps réel",
+        "storage": "Supabase Storage pour fichiers et documents",
+        "edge_functions": "Supabase Edge Functions pour logique métier"
+      },
+      "integrations": {
+        "voice_ai": "Integration OpenAI Whisper + GPT pour IA vocale",
+        "calendar_sync": "Google Calendar, Outlook, iCal",
+        "sms_notifications": "Twilio pour notifications SMS",
+        "email_service": "Resend pour emails transactionnels",
+        "payment": "Stripe pour abonnements et paiements"
+      }
+    },
+    "requirements_pool": {
+      "p0_must_have": [
+        {
+          "id": "REQ-001",
+          "title": "Authentification et gestion utilisateurs",
+          "description": "Système complet d'auth avec rôles et permissions",
+          "acceptance_criteria": "Login/signup fonctionnel, gestion profils, rôles définis"
+        },
+        {
+          "id": "REQ-002",
+          "title": "Calendrier principal STAGEPLANNER",
+          "description": "Interface calendrier centrale avec gestion événements",
+          "acceptance_criteria": "Création/édition événements, assignation équipes, conflits détectés"
+        },
+        {
+          "id": "REQ-003",
+          "title": "IA Vocale COMMERÇANTS PLANNER",
+          "description": "Système de prise RDV téléphonique automatisé",
+          "acceptance_criteria": "Reconnaissance vocale, traitement langage naturel, booking automatique"
+        },
+        {
+          "id": "REQ-004",
+          "title": "Interface Cyber Cristal Néon",
+          "description": "Thème visuel futuriste cohérent sur toute l'application",
+          "acceptance_criteria": "Design system complet, animations fluides, responsive"
+        }
+      ],
+      "p1_should_have": [
+        {
+          "id": "REQ-005",
+          "title": "Analytics et rapports",
+          "description": "Tableaux de bord avec métriques business",
+          "acceptance_criteria": "Dashboards configurables, exports PDF/Excel"
+        },
+        {
+          "id": "REQ-006",
+          "title": "Intégrations calendriers externes",
+          "description": "Sync bidirectionnelle Google/Outlook/iCal",
+          "acceptance_criteria": "Import/export fonctionnel, sync temps réel"
+        }
+      ],
+      "p2_nice_to_have": [
+        {
+          "id": "REQ-007",
+          "title": "API publique",
+          "description": "REST API pour intégrations tierces",
+          "acceptance_criteria": "Documentation OpenAPI, authentification tokens"
+        }
+      ]
+    }
+  },
+  "competitive_quadrant_chart": {
+    "title": "Positionnement concurrentiel PLANNER Suite",
+    "x_axis": "Portée fonctionnelle (Spécialisé → Généraliste)",
+    "y_axis": "Innovation technologique (Traditionnelle → Avant-gardiste)",
+    "quadrants": {
+      "q1": "Leaders innovants",
+      "q2": "Spécialistes avancés",
+      "q3": "Solutions basiques",
+      "q4": "Généralistes établis"
+    },
+    "positioning_data": {
+      "EventSoft": [0.7, 0.6],
+      "DIESE": [0.5, 0.7],
+      "Doctolib": [0.9, 0.8],
+      "AirAgent": [0.4, 0.5],
+      "Notion": [0.6, 0.7],
+      "Fantastical": [0.3, 0.8],
+      "Asana": [0.8, 0.6],
+      "PLANNER_Suite": [0.5, 0.9]
+    }
+  },
+  "open_questions": [
+    "Quelle stratégie de pricing adopter pour maximiser l'adoption tout en assurant la rentabilité?",
+    "Comment gérer la complexité réglementaire des contrats d'intermittents dans différentes régions?",
+    "Quelle approche pour la formation des utilisateurs à l'interface gaming innovante?",
+    "Comment assurer la performance de l'IA vocale avec les accents régionaux français?",
+    "Stratégie de déploiement: lancement par module ou suite complète?",
+    "Intégrations prioritaires avec les logiciels RH existants dans le spectacle?"
+  ]
+,
+  "ui_design_draft": {
+    "design_system": {
+      "theme": "Cyber Cristal Néon",
+      "color_palette": {
+        "primary": "#00D4FF (Bleu Électrique)",
+        "secondary": "#FF0080 (Magenta/Rose Fluo)",
+        "accent": "#39FF14 (Vert Néon)",
+        "background": "#0A0A0A (Noir Profond)",
+        "surface": "#1A1A1A (Gris Sombre)",
+        "text_primary": "#FFFFFF (Blanc Pur)",
+        "text_secondary": "#B3B3B3 (Gris Clair)"
+      },
+      "typography": {
+        "heading": "Orbitron (Police futuriste)",
+        "body": "Inter (Lisibilité optimale)",
+        "code": "JetBrains Mono (Éléments techniques)"
+      },
+      "effects": {
+        "glow": "box-shadow: 0 0 20px rgba(0, 212, 255, 0.5)",
+        "neon_border": "border: 2px solid #00D4FF; filter: drop-shadow(0 0 10px #00D4FF)",
+        "glass_morphism": "backdrop-filter: blur(10px); background: rgba(26, 26, 26, 0.8)",
+        "hover_animation": "transform: translateY(-2px); transition: all 0.3s ease"
+      }
+    },
+    "layout_structure": {
+      "header": {
+        "components": ["Logo PLANNER Suite avec effet néon", "Navigation principale", "Avatar utilisateur", "Notifications badge"],
+        "style": "Glass morphism avec bordure néon"
+      },
+      "sidebar": {
+        "modules": ["STAGEPLANNER", "LIFEPLANNER", "COMMERÇANTS PLANNER"],
+        "style": "Navigation verticale avec icônes néon animées"
+      },
+      "main_content": {
+        "stageplanner": {
+          "calendar_view": "Grille calendrier avec événements en cartes néon",
+          "team_management": "Dashboard avec avatars d'équipes en cercles lumineux",
+          "event_creation": "Formulaire modal avec champs à bordures néon"
+        },
+        "lifeplanner": {
+          "personal_calendar": "Vue calendrier personnel avec codes couleur néon",
+          "task_management": "Liste de tâches avec checkboxes animées"
+        },
+        "commercants_planner": {
+          "ai_interface": "Interface vocale avec visualisation d'ondes sonores",
+          "appointment_grid": "Grille RDV avec disponibilités en vert néon"
+        }
+      }
+    },
+    "key_ui_components": [
+      {
+        "name": "NeonButton",
+        "description": "Boutons avec effet glow et animation hover",
+        "variants": ["Primary (Bleu)", "Secondary (Magenta)", "Success (Vert)"]
+      },
+      {
+        "name": "GlassCard",
+        "description": "Cartes avec effet glass morphism et bordures néon",
+        "usage": "Événements, profils utilisateurs, statistiques"
+      },
+      {
+        "name": "NeonInput",
+        "description": "Champs de saisie avec bordures lumineuses au focus",
+        "features": "Validation temps réel avec changement de couleur"
+      },
+      {
+        "name": "AnimatedAvatar",
+        "description": "Avatars utilisateurs avec aura colorée selon le statut",
+        "states": "Disponible (Vert), Occupé (Rouge), Hors ligne (Gris)"
+      }
+    ]
+  },
+  "roadmap": {
+    "phase_1_mvp": {
+      "duration": "3 mois",
+      "deliverables": [
+        "Authentification et gestion utilisateurs",
+        "Interface de base avec thème Cyber Cristal Néon",
+        "Module STAGEPLANNER core (calendrier, événements basiques)",
+        "Gestion des profils intermittents et régisseurs",
+        "Notifications push de base"
+      ],
+      "success_metrics": "100 utilisateurs beta, fonctionnalités core opérationnelles"
+    },
+    "phase_2_enhancement": {
+      "duration": "2 mois",
+      "deliverables": [
+        "Module COMMERÇANTS PLANNER avec IA vocale",
+        "Module LIFEPLANNER personnel",
+        "Intégrations calendriers externes (Google, Outlook)",
+        "Application mobile PWA",
+        "Analytics et tableaux de bord"
+      ],
+      "success_metrics": "500 utilisateurs actifs, 3 modules opérationnels"
+    },
+    "phase_3_scale": {
+      "duration": "4 mois",
+      "deliverables": [
+        "API publique et webhooks",
+        "Fonctionnalités avancées d'IA prédictive",
+        "Intégrations logiciels RH secteur spectacle",
+        "Optimisations performance et scalabilité",
+        "Support multi-langues (EN, ES)"
+      ],
+      "success_metrics": "2,000 utilisateurs, partenariats établis"
+    }
+  },
+  "pricing_strategy": {
+    "freemium_model": {
+      "free_tier": {
+        "name": "PLANNER Starter",
+        "price": "0€/mois",
+        "limits": "5 événements/mois, 3 équipiers max, fonctionnalités de base",
+        "target": "Petites structures, test du produit"
+      },
+      "professional_tier": {
+        "name": "PLANNER Pro",
+        "price": "29€/mois par régisseur",
+        "features": "Événements illimités, équipes illimitées, IA vocale, intégrations",
+        "target": "Professionnels établis, PME événementiel"
+      },
+      "enterprise_tier": {
+        "name": "PLANNER Enterprise",
+        "price": "Sur devis (à partir de 199€/mois)",
+        "features": "Multi-sites, API, support prioritaire, formations",
+        "target": "Grandes structures, théâtres nationaux"
+      }
+    }
+  }
+}
