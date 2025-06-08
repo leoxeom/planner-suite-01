@@ -9,6 +9,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../store/authStore';
 import { Button } from '../../components/ui/Button';
 import { EventResponseForm } from '../../components/intermittent/EventResponseForm';
+import { ReplacementRequestWithSuggestions } from '../../components/intermittent/ReplacementRequestWithSuggestions';
 
 interface EventDetails {
   id: string;
@@ -67,11 +68,9 @@ export const IntermittentEventDetails: React.FC = () => {
   const [replacementRequest, setReplacementRequest] = useState<ReplacementRequest | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
-  const [requestType, setRequestType] = useState<'urgent' | 'souhaite'>('souhaite');
-  const [requestComment, setRequestComment] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // Nouveaux états pour la gestion des réponses
+  // États pour la gestion des réponses
   const [isResponseFormOpen, setIsResponseFormOpen] = useState(false);
   const [responseHistory, setResponseHistory] = useState<EventResponse[]>([]);
 
@@ -162,51 +161,6 @@ export const IntermittentEventDetails: React.FC = () => {
       toast.error('Erreur lors du chargement des données de l\'événement');
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const handleRequestReplacement = async () => {
-    try {
-      if (!requestComment.trim()) {
-        toast.error('Veuillez fournir une raison pour votre demande de remplacement');
-        return;
-      }
-
-      setIsSubmitting(true);
-
-      // Récupérer l'ID du régisseur
-      const { data: event, error: eventError } = await supabase
-        .from('events')
-        .select('regisseur_id')
-        .eq('id', eventId)
-        .single();
-
-      if (eventError) throw eventError;
-
-      // Créer la demande de remplacement
-      const { data, error } = await supabase
-        .from('replacement_requests')
-        .insert({
-          event_assignment_id: assignment!.id,
-          requester_intermittent_profile_id: assignment!.id.split('_')[0], // Simplification, à adapter selon votre structure
-          regisseur_id: event.regisseur_id,
-          request_type: requestType,
-          comment: requestComment,
-          status: 'pending_approval'
-        });
-
-      if (error) throw error;
-
-      toast.success('Votre demande de remplacement a été envoyée');
-      setIsRequestModalOpen(false);
-      setRequestComment('');
-      fetchEventData(); // Rafraîchir les données
-
-    } catch (error) {
-      console.error('Error submitting replacement request:', error);
-      toast.error('Erreur lors de l\'envoi de la demande de remplacement');
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -514,112 +468,6 @@ export const IntermittentEventDetails: React.FC = () => {
         </div>
       )}
 
-      {/* Modale de demande de remplacement */}
-      <AnimatePresence>
-        {isRequestModalOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-            onClick={() => setIsRequestModalOpen(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              transition={{ type: "spring", damping: 20 }}
-              className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-6 max-w-md w-full shadow-xl"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-bold">Demande de remplacement</h3>
-                <button
-                  onClick={() => setIsRequestModalOpen(false)}
-                  className="p-2 rounded-full hover:bg-white/10 transition-colors"
-                >
-                  <X size={20} />
-                </button>
-              </div>
-
-              <div className="space-y-6">
-                <div>
-                  <label className="block text-sm font-medium mb-2">Type de demande</label>
-                  <div className="flex gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setRequestType('urgent')}
-                      className={`flex-1 p-3 rounded-lg border transition-all ${
-                        requestType === 'urgent'
-                          ? 'bg-red-900/20 border-red-500/30 text-red-400'
-                          : 'bg-white/5 border-white/10 hover:bg-white/10'
-                      }`}
-                    >
-                      <div className="flex items-center justify-center gap-2">
-                        <AlertTriangle size={18} />
-                        <span>Urgent</span>
-                      </div>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setRequestType('souhaite')}
-                      className={`flex-1 p-3 rounded-lg border transition-all ${
-                        requestType === 'souhaite'
-                          ? 'bg-blue-900/20 border-blue-500/30 text-blue-400'
-                          : 'bg-white/5 border-white/10 hover:bg-white/10'
-                      }`}
-                    >
-                      <div className="flex items-center justify-center gap-2">
-                        <MessageSquare size={18} />
-                        <span>Souhait</span>
-                      </div>
-                    </button>
-                  </div>
-                </div>
-
-                <div>
-                  <label htmlFor="requestComment" className="block text-sm font-medium mb-2">
-                    Raison de la demande
-                  </label>
-                  <textarea
-                    id="requestComment"
-                    value={requestComment}
-                    onChange={(e) => setRequestComment(e.target.value)}
-                    className="w-full p-3 bg-white/5 border border-white/10 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
-                    rows={4}
-                    placeholder="Expliquez pourquoi vous demandez un remplacement..."
-                  />
-                </div>
-
-                <div className="flex justify-end gap-3">
-                  <Button
-                    variant="outline"
-                    onClick={() => setIsRequestModalOpen(false)}
-                    disabled={isSubmitting}
-                  >
-                    Annuler
-                  </Button>
-                  <Button
-                    variant="primary"
-                    onClick={handleRequestReplacement}
-                    disabled={isSubmitting}
-                  >
-                    {isSubmitting ? (
-                      <div className="flex items-center gap-2">
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                        <span>En cours...</span>
-                      </div>
-                    ) : (
-                      <span>Envoyer la demande</span>
-                    )}
-                  </Button>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* Modale de formulaire de réponse */}
       <AnimatePresence>
         {isResponseFormOpen && (
@@ -641,6 +489,33 @@ export const IntermittentEventDetails: React.FC = () => {
                   fetchEventData(); // Rafraîchir les données après la soumission
                 }}
                 onCancel={() => setIsResponseFormOpen(false)}
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Nouvelle modale de demande de remplacement avec suggestions */}
+      <AnimatePresence>
+        {isRequestModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => setIsRequestModalOpen(false)}
+          >
+            <div onClick={(e) => e.stopPropagation()}>
+              <ReplacementRequestWithSuggestions
+                eventId={eventId || ''}
+                assignmentId={assignment.id}
+                eventName={eventDetails.nom_evenement}
+                eventDate={eventDetails.date_debut}
+                onRequestSubmitted={() => {
+                  setIsRequestModalOpen(false);
+                  fetchEventData(); // Rafraîchir les données après la soumission
+                }}
+                onCancel={() => setIsRequestModalOpen(false)}
               />
             </div>
           </motion.div>
