@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Plus, Trash2, Link, Search, ChevronDown, Filter } from 'lucide-react';
+import { Plus, Trash2, Link, Search, ChevronDown, Filter, Users, Wrench } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthStore } from '../../store/authStore';
@@ -12,6 +12,7 @@ interface PlanningItem {
   id: string;
   heure: string;
   intitule: string;
+  groupe: 'artistes' | 'techniques';
 }
 
 interface EventTexts {
@@ -50,7 +51,7 @@ export const CreateEvent: React.FC = () => {
     lieu: '',
   });
   const [planningItems, setPlanningItems] = useState<PlanningItem[]>([
-    { id: '1', heure: '', intitule: '' },
+    { id: '1', heure: '', intitule: '', groupe: 'techniques' },
   ]);
   const [eventTexts, setEventTexts] = useState<EventTexts>({
     son: '',
@@ -112,6 +113,8 @@ export const CreateEvent: React.FC = () => {
           id: item.id,
           heure: item.heure,
           intitule: item.intitule,
+          // Utilise la valeur du groupe de la base de données ou 'techniques' par défaut
+          groupe: item.groupe || 'techniques',
         })));
       }
 
@@ -156,653 +159,580 @@ export const CreateEvent: React.FC = () => {
   };
 
   useEffect(() => {
-    const fetchIntermittents = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('intermittent_profiles')
-          .select('id, nom, prenom, specialite');
-
-        if (error) throw error;
-        setIntermittents(data || []);
-      } catch (error) {
-        console.error('Error fetching intermittents:', error);
-        toast.error('Erreur lors du chargement des intermittents');
-      }
-    };
-
     fetchIntermittents();
   }, []);
 
-  const toggleSection = (section: SectionType) => {
-    setExpandedSections(prev => {
-      const next = new Set(prev);
-      if (next.has(section)) {
-        next.delete(section);
-      } else {
-        next.add(section);
-      }
-      return next;
-    });
+  const fetchIntermittents = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('intermittent_profiles')
+        .select('id, nom, prenom, specialite')
+        .order('nom');
+
+      if (error) throw error;
+      setIntermittents(data || []);
+    } catch (error) {
+      console.error('Error fetching intermittents:', error);
+      toast.error('Erreur lors du chargement des intermittents');
+    }
   };
 
-  const addPlanningItem = () => {
-    setPlanningItems(prev => [
-      ...prev,
-      { id: String(prev.length + 1), heure: '', intitule: '' }
-    ]);
+  const handleEventDataChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setEventData({ ...eventData, [name]: value });
   };
 
-  const removePlanningItem = (id: string) => {
-    setPlanningItems(prev => prev.filter(item => item.id !== id));
-  };
-
-  const updatePlanningItem = (id: string, field: keyof PlanningItem, value: string) => {
-    setPlanningItems(prev =>
-      prev.map(item =>
+  const handlePlanningItemChange = (
+    id: string,
+    field: keyof PlanningItem,
+    value: string | 'artistes' | 'techniques'
+  ) => {
+    setPlanningItems(
+      planningItems.map(item =>
         item.id === id ? { ...item, [field]: value } : item
       )
     );
   };
 
+  const addPlanningItem = () => {
+    setPlanningItems([
+      ...planningItems,
+      { id: crypto.randomUUID(), heure: '', intitule: '', groupe: 'techniques' },
+    ]);
+  };
+
+  const removePlanningItem = (id: string) => {
+    setPlanningItems(planningItems.filter(item => item.id !== id));
+  };
+
+  const handleEventTextChange = (
+    section: SectionType,
+    value: string
+  ) => {
+    setEventTexts({ ...eventTexts, [section]: value });
+  };
+
+  const handleEventLinkChange = (
+    section: SectionType,
+    value: string
+  ) => {
+    setEventLinks({ ...eventLinks, [section]: value });
+  };
+
   const toggleSpecialty = (specialty: Specialite) => {
-    setSelectedSpecialties(prev => {
-      const next = new Set(prev);
-      if (next.has(specialty)) {
-        next.delete(specialty);
-      } else {
-        next.add(specialty);
-      }
-      return next;
-    });
+    const newSpecialties = new Set(selectedSpecialties);
+    if (newSpecialties.has(specialty)) {
+      newSpecialties.delete(specialty);
+    } else {
+      newSpecialties.add(specialty);
+    }
+    setSelectedSpecialties(newSpecialties);
   };
 
   const toggleIntermittent = (id: string) => {
-    setSelectedIntermittents(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
+    const newSelected = new Set(selectedIntermittents);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedIntermittents(newSelected);
   };
 
-  const filteredIntermittents = intermittents.filter(intermittent => {
-    const searchLower = searchTerm.toLowerCase();
-    const matchesSearch = 
-      intermittent.nom.toLowerCase().includes(searchLower) ||
-      intermittent.prenom.toLowerCase().includes(searchLower) ||
-      (intermittent.specialite?.toLowerCase().includes(searchLower) ?? false);
-
-    if (selectedSpecialties.size === 0) {
-      return matchesSearch;
+  const toggleSection = (section: SectionType) => {
+    const newExpanded = new Set(expandedSections);
+    if (newExpanded.has(section)) {
+      newExpanded.delete(section);
+    } else {
+      newExpanded.add(section);
     }
-
-    return (
-      matchesSearch && 
-      intermittent.specialite && 
-      selectedSpecialties.has(intermittent.specialite as Specialite)
-    );
-  });
-
-  const validateEventData = () => {
-    const errors: string[] = [];
-
-    if (!eventData.nom_evenement.trim()) {
-      errors.push("Le nom de l'événement est requis");
-    }
-    if (!eventData.date_debut) {
-      errors.push("La date de début est requise");
-    }
-    if (!eventData.date_fin) {
-      errors.push("La date de fin est requise");
-    }
-
-    return errors;
+    setExpandedSections(newExpanded);
   };
 
-  const validateSubmission = () => {
-    const errors: string[] = [];
+  const filteredIntermittents = intermittents.filter(
+    intermittent =>
+      intermittent.nom.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      intermittent.prenom.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (intermittent.specialite &&
+        intermittent.specialite.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
 
-    if (!eventData.nom_evenement.trim()) {
-      errors.push("Le nom de l'événement est requis");
-    }
-    if (!eventData.date_debut) {
-      errors.push("La date de début est requise");
-    }
-    if (!eventData.date_fin) {
-      errors.push("La date de fin est requise");
-    }
-    if (!eventData.lieu?.trim()) {
-      errors.push("Le lieu est requis");
-    }
-
-    const validPlanningItems = planningItems.filter(
-      item => item.heure.trim() && item.intitule.trim()
-    );
-    if (validPlanningItems.length === 0) {
-      errors.push("Au moins une étape de planning est requise");
-    }
-
-    if (selectedIntermittents.size === 0) {
-      errors.push("Au moins un intermittent doit être sélectionné");
-    }
-
-    return errors;
-  };
-
-  const savePlanningItems = async (eventId: string) => {
-    const validPlanningItems = planningItems.filter(
-      item => item.heure.trim() && item.intitule.trim()
-    );
-
-    if (validPlanningItems.length === 0) {
-      return { error: null };
-    }
-
-    const itemsToInsert = validPlanningItems.map((item, index) => ({
-      event_id: eventId,
-      heure: item.heure,
-      intitule: item.intitule,
-      ordre: index
-    }));
-
-    return await supabase
-      .from('event_planning_items')
-      .insert(itemsToInsert);
-  };
-
-  const saveInformationFields = async (eventId: string) => {
-    const infoFields = [];
-    
-    for (const type of ['son', 'lumiere', 'plateau', 'general'] as const) {
-      if (eventTexts[type] || eventLinks[type]) {
-        infoFields.push({
-          event_id: eventId,
-          type_champ: type,
-          contenu_texte: eventTexts[type] || null,
-          chemin_fichier_supabase_storage: eventLinks[type] || null
-        });
-      }
-    }
-
-    if (infoFields.length === 0) {
-      return { error: null };
-    }
-
-    return await supabase
-      .from('event_information_fields')
-      .insert(infoFields);
-  };
-
-  const saveIntermittentAssignments = async (eventId: string, isDraft: boolean) => {
-    if (selectedIntermittents.size === 0) {
-      return { error: null };
-    }
-
-    const assignments = Array.from(selectedIntermittents).map(intermittentId => ({
-      event_id: eventId,
-      intermittent_profile_id: intermittentId,
-      statut_disponibilite: isDraft ? 'propose' : 'propose'
-    }));
-
-    return await supabase
-      .from('event_intermittent_assignments')
-      .insert(assignments);
-  };
-
-  const updateEvent = async (isDraft: boolean) => {
+  const handleSubmit = async (publish: boolean) => {
     try {
-      const { data: updatedEvent, error: eventError } = await supabase
-        .from('events')
-        .update({
-          nom_evenement: eventData.nom_evenement,
-          date_debut: eventData.date_debut,
-          date_fin: eventData.date_fin,
-          lieu: eventData.lieu || null,
-          statut_evenement: isDraft ? 'brouillon' : 'publie',
-          specialites_requises: Array.from(selectedSpecialties)
-        })
-        .eq('id', eventId)
-        .select()
-        .single();
+      if (!eventData.nom_evenement || !eventData.date_debut || !eventData.date_fin) {
+        toast.error('Veuillez remplir tous les champs obligatoires');
+        return;
+      }
 
-      if (eventError) throw eventError;
+      setIsLoading(true);
 
-      const { error: deletePlanningError } = await supabase
-        .from('event_planning_items')
-        .delete()
-        .eq('event_id', eventId);
+      // Validation des items du planning
+      const validPlanningItems = planningItems.filter(
+        item => item.heure.trim() !== '' && item.intitule.trim() !== ''
+      );
 
-      if (deletePlanningError) throw deletePlanningError;
+      let eventId = '';
 
-      const { error: deleteInfoError } = await supabase
-        .from('event_information_fields')
-        .delete()
-        .eq('event_id', eventId);
-
-      if (deleteInfoError) throw deleteInfoError;
-
-      const { error: deleteAssignmentsError } = await supabase
-        .from('event_intermittent_assignments')
-        .delete()
-        .eq('event_id', eventId);
-
-      if (deleteAssignmentsError) throw deleteAssignmentsError;
-
-      const { error: planningError } = await savePlanningItems(eventId);
-      if (planningError) throw planningError;
-
-      const { error: infoError } = await saveInformationFields(eventId);
-      if (infoError) throw infoError;
-
-      const { error: assignmentError } = await saveIntermittentAssignments(eventId, isDraft);
-      if (assignmentError) throw assignmentError;
-
-      return { success: true, eventId: updatedEvent.id };
-    } catch (error) {
-      console.error('Error updating event:', error);
-      return { success: false, error };
-    }
-  };
-
-  const saveEvent = async (isDraft: boolean) => {
-    try {
-      const { data: newEvent, error: eventError } = await supabase
-        .from('events')
-        .insert([
-          {
+      if (isEditMode) {
+        // Mise à jour de l'événement existant
+        const { data: updatedEvent, error: updateError } = await supabase
+          .from('events')
+          .update({
             nom_evenement: eventData.nom_evenement,
             date_debut: eventData.date_debut,
             date_fin: eventData.date_fin,
-            lieu: eventData.lieu || null,
+            lieu: eventData.lieu,
+            statut_evenement: publish ? 'publie' : 'brouillon',
+            specialites_requises: Array.from(selectedSpecialties),
+          })
+          .eq('id', eventId)
+          .select()
+          .single();
+
+        if (updateError) throw updateError;
+        eventId = updatedEvent.id;
+
+        // Supprimer les anciens items de planning
+        await supabase
+          .from('event_planning_items')
+          .delete()
+          .eq('event_id', eventId);
+
+        // Supprimer les anciens champs d'information
+        await supabase
+          .from('event_information_fields')
+          .delete()
+          .eq('event_id', eventId);
+
+        // Supprimer les anciennes assignations
+        await supabase
+          .from('event_intermittent_assignments')
+          .delete()
+          .eq('event_id', eventId);
+      } else {
+        // Création d'un nouvel événement
+        const { data: newEvent, error: insertError } = await supabase
+          .from('events')
+          .insert({
             regisseur_id: user!.id,
-            statut_evenement: isDraft ? 'brouillon' : 'publie',
-            specialites_requises: Array.from(selectedSpecialties)
-          }
-        ])
-        .select()
-        .single();
+            nom_evenement: eventData.nom_evenement,
+            date_debut: eventData.date_debut,
+            date_fin: eventData.date_fin,
+            lieu: eventData.lieu,
+            statut_evenement: publish ? 'publie' : 'brouillon',
+            specialites_requises: Array.from(selectedSpecialties),
+          })
+          .select()
+          .single();
 
-      if (eventError) throw eventError;
-
-      const { error: planningError } = await savePlanningItems(newEvent.id);
-      if (planningError) throw planningError;
-
-      const { error: infoError } = await saveInformationFields(newEvent.id);
-      if (infoError) throw infoError;
-
-      const { error: assignmentError } = await saveIntermittentAssignments(newEvent.id, isDraft);
-      if (assignmentError) throw assignmentError;
-
-      return { success: true, eventId: newEvent.id };
-    } catch (error) {
-      console.error('Error saving event:', error);
-      return { success: false, error };
-    }
-  };
-
-  const handleSubmit = async (isDraft: boolean) => {
-    if (!isDraft) {
-      const validationErrors = validateSubmission();
-      if (validationErrors.length > 0) {
-        toast.error(
-          <div>
-            <p className="font-semibold mb-2">Veuillez corriger les erreurs suivantes :</p>
-            <ul className="list-disc list-inside">
-              {validationErrors.map((error, index) => (
-                <li key={index}>{error}</li>
-              ))}
-            </ul>
-          </div>
-        );
-        return;
+        if (insertError) throw insertError;
+        eventId = newEvent.id;
       }
-    } else {
-      const validationErrors = validateEventData();
-      if (validationErrors.length > 0) {
-        toast.error(
-          <div>
-            <p className="font-semibold mb-2">Veuillez corriger les erreurs suivantes :</p>
-            <ul className="list-disc list-inside">
-              {validationErrors.map((error, index) => (
-                <li key={index}>{error}</li>
-              ))}
-            </ul>
-          </div>
-        );
-        return;
+
+      // Insertion des items de planning
+      if (validPlanningItems.length > 0) {
+        const planningData = validPlanningItems.map((item, index) => ({
+          event_id: eventId,
+          heure: item.heure,
+          intitule: item.intitule,
+          ordre: index,
+          groupe: item.groupe, // Sauvegarde du groupe pour chaque item
+        }));
+
+        const { error: planningError } = await supabase
+          .from('event_planning_items')
+          .insert(planningData);
+
+        if (planningError) throw planningError;
       }
-    }
 
-    setIsLoading(true);
+      // Insertion des champs d'information
+      const infoFields = [];
+      for (const section of ['son', 'lumiere', 'plateau', 'general'] as SectionType[]) {
+        if (eventTexts[section] || eventLinks[section]) {
+          infoFields.push({
+            event_id: eventId,
+            type_champ: section,
+            contenu_texte: eventTexts[section],
+            chemin_fichier_supabase_storage: eventLinks[section],
+          });
+        }
+      }
 
-    try {
-      const { success, error } = isEditMode 
-        ? await updateEvent(isDraft)
-        : await saveEvent(isDraft);
+      if (infoFields.length > 0) {
+        const { error: infoError } = await supabase
+          .from('event_information_fields')
+          .insert(infoFields);
 
-      if (!success) throw error;
+        if (infoError) throw infoError;
+      }
+
+      // Insertion des assignations d'intermittents
+      if (selectedIntermittents.size > 0) {
+        const assignments = Array.from(selectedIntermittents).map(intermittentId => ({
+          event_id: eventId,
+          intermittent_profile_id: intermittentId,
+          statut_disponibilite: 'propose',
+        }));
+
+        const { error: assignmentError } = await supabase
+          .from('event_intermittent_assignments')
+          .insert(assignments);
+
+        if (assignmentError) throw assignmentError;
+      }
 
       toast.success(
         isEditMode
-          ? isDraft
-            ? "L'événement a été mis à jour en brouillon"
-            : "L'événement a été mis à jour et publié"
-          : isDraft
-            ? "L'événement a été enregistré en brouillon"
-            : <div>
-                <p>Événement créé avec succès !</p>
-                <p className="text-sm mt-1">
-                  {selectedIntermittents.size} intermittent{selectedIntermittents.size > 1 ? 's' : ''} à contacter
-                </p>
-              </div>
+          ? 'Événement mis à jour avec succès'
+          : 'Événement créé avec succès'
       );
-
-      navigate('/dashboard');
-    } catch (error: any) {
-      console.error('Error saving event:', error);
-      toast.error(
-        error.message === 'JWT expired'
-          ? 'Votre session a expiré. Veuillez vous reconnecter.'
-          : "Une erreur est survenue lors de l'enregistrement"
-      );
+      navigate(`/dashboard/regisseur/events/${eventId}`);
+    } catch (error) {
+      console.error('Error submitting event:', error);
+      toast.error('Erreur lors de la soumission de l\'événement');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="relative flex gap-8">
-      <div className="flex-1 max-w-4xl space-y-8">
+    <div className="space-y-8">
+      <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">
-          {isEditMode ? 'Modifier l\'Événement' : 'Créer un Nouvel Événement'}
+          {isEditMode ? 'Modifier l\'événement' : 'Créer un événement'}
         </h1>
+      </div>
 
-        <div className="bg-white dark:bg-dark-800 rounded-xl shadow-lg p-6">
-          <h2 className="text-xl font-semibold mb-4">Informations Générales</h2>
-          <div className="space-y-4">
+      {/* Informations générales */}
+      <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-6 shadow-lg">
+        <h2 className="text-xl font-semibold mb-4">Informations générales</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <label htmlFor="nom_evenement" className="block text-sm font-medium">
+              Nom de l'événement *
+            </label>
             <Input
-              label="Nom de l'événement"
+              id="nom_evenement"
+              name="nom_evenement"
               value={eventData.nom_evenement}
-              onChange={(e) => setEventData({ ...eventData, nom_evenement: e.target.value })}
-              placeholder="Ex: Concert de Jazz"
+              onChange={handleEventDataChange}
               required
+              placeholder="Nom de l'événement"
             />
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Input
-                type="date"
-                label="Date de début"
-                value={eventData.date_debut}
-                onChange={(e) => setEventData({ ...eventData, date_debut: e.target.value })}
-                required
-              />
-
-              <Input
-                type="date"
-                label="Date de fin"
-                value={eventData.date_fin}
-                onChange={(e) => setEventData({ ...eventData, date_fin: e.target.value })}
-                min={eventData.date_debut}
-                required
-              />
-            </div>
-
+          </div>
+          <div className="space-y-2">
+            <label htmlFor="lieu" className="block text-sm font-medium">
+              Lieu
+            </label>
             <Input
-              label="Lieu"
+              id="lieu"
+              name="lieu"
               value={eventData.lieu}
-              onChange={(e) => setEventData({ ...eventData, lieu: e.target.value })}
-              placeholder="Ex: Salle des fêtes"
+              onChange={handleEventDataChange}
+              placeholder="Lieu de l'événement"
+            />
+          </div>
+          <div className="space-y-2">
+            <label htmlFor="date_debut" className="block text-sm font-medium">
+              Date de début *
+            </label>
+            <Input
+              id="date_debut"
+              name="date_debut"
+              type="datetime-local"
+              value={eventData.date_debut}
+              onChange={handleEventDataChange}
               required
             />
           </div>
-        </div>
-
-        <div className="bg-white dark:bg-dark-800 rounded-xl shadow-lg p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold">Planning de la journée</h2>
-            <Button
-              variant="ghost"
-              onClick={addPlanningItem}
-              leftIcon={<Plus size={18} />}
-            >
-              Ajouter une étape
-            </Button>
-          </div>
-
-          <div className="space-y-4">
-            {planningItems.map((item) => (
-              <div key={item.id} className="flex gap-4 items-start">
-                <Input
-                  type="time"
-                  value={item.heure}
-                  onChange={(e) => updatePlanningItem(item.id, 'heure', e.target.value)}
-                  className="w-32"
-                  required
-                />
-                <Input
-                  value={item.intitule}
-                  onChange={(e) => updatePlanningItem(item.id, 'intitule', e.target.value)}
-                  placeholder="Description de l'étape"
-                  required
-                />
-                {planningItems.length > 1 && (
-                  <Button
-                    variant="ghost"
-                    onClick={() => removePlanningItem(item.id)}
-                    className="shrink-0"
-                  >
-                    <Trash2 size={18} />
-                  </Button>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-dark-800 rounded-xl shadow-lg p-6">
-          <h2 className="text-xl font-semibold mb-4">Informations par Spécialité</h2>
-
-          <div className="space-y-4">
-            {(['son', 'lumiere', 'plateau', 'general'] as const).map((type) => (
-              <div key={type} className="border dark:border-dark-700 rounded-lg overflow-hidden">
-                <button
-                  onClick={() => toggleSection(type)}
-                  className="w-full px-4 py-3 flex justify-between items-center bg-gray-50 dark:bg-dark-900 hover:bg-gray-100 dark:hover:bg-dark-800 transition-colors"
-                >
-                  <h3 className="text-lg font-medium capitalize">
-                    {type === 'general' ? 'Informations Générales' : `Informations ${type}`}
-                  </h3>
-                  <motion.div
-                    animate={{ rotate: expandedSections.has(type) ? 180 : 0 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <ChevronDown size={20} />
-                  </motion.div>
-                </button>
-
-                <AnimatePresence>
-                  {expandedSections.has(type) && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      <div className="p-4 space-y-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5">
-                            Notes et consignes
-                          </label>
-                          <textarea
-                            value={eventTexts[type]}
-                            onChange={(e) => setEventTexts(prev => ({ ...prev, [type]: e.target.value }))}
-                            placeholder={`Saisissez ici les informations détaillées pour ${type === 'general' ? 'tous' : type}`}
-                            className="w-full h-48 px-4 py-2.5 rounded-lg bg-white dark:bg-dark-900 border dark:border-dark-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-dark-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors duration-200 font-mono"
-                          />
-                          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                            Utilisez des listes avec - ou * pour plus de clarté. Vous pouvez aussi utiliser des # pour les titres.
-                          </p>
-                        </div>
-
-                        <Input
-                          label={`Lien vers le dossier ${type === 'general' ? 'général' : type} (ex: Google Drive)`}
-                          value={eventLinks[type]}
-                          onChange={(e) => setEventLinks(prev => ({ ...prev, [type]: e.target.value }))}
-                          placeholder="https://drive.google.com/..."
-                          leftIcon={<Link size={18} className="text-gray-500" />}
-                        />
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-dark-800 rounded-xl shadow-lg p-6">
-          <h2 className="text-xl font-semibold mb-4">Spécialités Requises</h2>
-          <div className="flex flex-wrap gap-4">
-            {(['son', 'lumiere', 'plateau'] as const).map((specialty) => (
-              <button
-                key={specialty}
-                onClick={() => toggleSpecialty(specialty)}
-                className={`px-4 py-2 rounded-lg border-2 transition-colors ${
-                  selectedSpecialties.has(specialty)
-                    ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300'
-                    : 'border-gray-300 dark:border-dark-700 hover:border-primary-300 dark:hover:border-primary-700'
-                }`}
-              >
-                <span className="capitalize">{specialty}</span>
-              </button>
-            ))}
-          </div>
-          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-            Sélectionnez les spécialités techniques nécessaires pour cet événement
-          </p>
-        </div>
-
-        <div className="bg-white dark:bg-dark-800 rounded-xl shadow-lg p-6">
-          <h2 className="text-xl font-semibold mb-4">Intermittents à Convoquer pour cet Événement</h2>
-
-          <div className="mb-6">
+          <div className="space-y-2">
+            <label htmlFor="date_fin" className="block text-sm font-medium">
+              Date de fin *
+            </label>
             <Input
-              placeholder="Rechercher un intermittent..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              leftIcon={<Search size={18} className="text-gray-500" />}
-              rightIcon={
-                selectedSpecialties.size > 0 && (
-                  <div className="flex items-center space-x-2 px-2 py-1 bg-primary-50 dark:bg-primary-900/20 rounded-lg">
-                    <Filter size={14} className="text-primary-500" />
-                    <span className="text-sm text-primary-700 dark:text-primary-300">
-                      {selectedSpecialties.size} filtre{selectedSpecialties.size > 1 ? 's' : ''}
-                    </span>
-                  </div>
-                )
-              }
+              id="date_fin"
+              name="date_fin"
+              type="datetime-local"
+              value={eventData.date_fin}
+              onChange={handleEventDataChange}
+              required
             />
-          </div>
-
-          <div className="space-y-2 max-h-96 overflow-y-auto">
-            {filteredIntermittents.length === 0 ? (
-              <p className="text-center text-gray-500 dark:text-gray-400 py-4">
-                {searchTerm || selectedSpecialties.size > 0
-                  ? 'Aucun intermittent ne correspond aux critères'
-                  : 'Chargement des intermittents...'}
-              </p>
-            ) : (
-              filteredIntermittents.map((intermittent) => (
-                <label
-                  key={intermittent.id}
-                  className="flex items-center p-3 hover:bg-gray-50 dark:hover:bg-dark-900 rounded-lg cursor-pointer transition-colors"
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedIntermittents.has(intermittent.id)}
-                    onChange={() => toggleIntermittent(intermittent.id)}
-                    className="mr-3 h-5 w-5 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                  />
-                  <div>
-                    <span className="font-medium">
-                      {intermittent.prenom} {intermittent.nom}
-                    </span>
-                    {intermittent.specialite && (
-                      <span className={`ml-2 text-sm ${
-                        selectedSpecialties.has(intermittent.specialite as Specialite)
-                          ? 'text-primary-600 dark:text-primary-400 font-medium'
-                          : 'text-gray-500 dark:text-gray-400'
-                      }`}>
-                        ({intermittent.specialite})
-                      </span>
-                    )}
-                  </div>
-                </label>
-              ))
-            )}
           </div>
         </div>
       </div>
 
-      <div className="fixed top-24 right-8 w-64" style={{ maxHeight: 'calc(100vh - 8rem)' }}>
-        <div className="w-full bg-dark-800/80 backdrop-blur-lg border border-white/10 rounded-xl p-4 space-y-4">
-          <div className="space-y-2">
-            <h3 className="text-sm font-medium text-gray-400 uppercase tracking-wider">
-              Actions
-            </h3>
-            <div className="h-px bg-gradient-to-r from-primary-500/50 to-transparent" />
-          </div>
-          
-          <div className="space-y-3">
-            <Button
-              variant="outline"
-              onClick={() => handleSubmit(true)}
-              isLoading={isLoading}
-              className="w-full justify-center"
+      {/* Planning de la journée (Feuille de route) */}
+      <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-6 shadow-lg">
+        <h2 className="text-xl font-semibold mb-4">Feuille de route</h2>
+        <div className="space-y-4">
+          {planningItems.map((item, index) => (
+            <div
+              key={item.id}
+              className="flex flex-col md:flex-row items-start md:items-center gap-3 p-3 bg-white/5 rounded-lg border border-white/10 hover:border-primary/30 transition-all"
             >
-              {isEditMode ? (
-                <>
-                  <span className="block text-xs text-gray-400">Mettre à jour en</span>
-                  <span>Brouillon</span>
-                </>
-              ) : (
-                <>
-                  <span className="block text-xs text-gray-400">Enregistrer en</span>
-                  <span>Brouillon</span>
-                </>
-              )}
-            </Button>
-            
-            <Button
-              onClick={() => handleSubmit(false)}
-              isLoading={isLoading}
-              className="w-full justify-center"
-              glow
-            >
-              {isEditMode ? (
-                <>
-                  <span className="block text-xs">Mettre à jour et</span>
-                  <span>Publier</span>
-                </>
-              ) : (
-                <>
-                  <span className="block text-xs">Soumettre aux</span>
-                  <span>Intermittents</span>
-                </>
-              )}
-            </Button>
-          </div>
-
-          <div className="pt-4 border-t border-white/10">
-            <p className="text-xs text-gray-400 leading-relaxed">
-              En mode brouillon, l'événement ne sera pas visible par les intermittents. 
-              Vous pourrez le modifier ultérieurement.
-            </p>
-          </div>
+              <div className="w-full md:w-1/6">
+                <Input
+                  type="time"
+                  value={item.heure}
+                  onChange={(e) =>
+                    handlePlanningItemChange(item.id, 'heure', e.target.value)
+                  }
+                  placeholder="Heure"
+                />
+              </div>
+              <div className="flex-grow">
+                <Input
+                  value={item.intitule}
+                  onChange={(e) =>
+                    handlePlanningItemChange(item.id, 'intitule', e.target.value)
+                  }
+                  placeholder="Description de l'étape"
+                />
+              </div>
+              
+              {/* Sélecteur de groupe avec design moderne */}
+              <div className="flex items-center space-x-2 bg-black/20 backdrop-blur-sm rounded-full p-1 border border-white/10">
+                <button
+                  type="button"
+                  onClick={() => handlePlanningItemChange(item.id, 'groupe', 'artistes')}
+                  className={`flex items-center gap-1 px-3 py-1.5 rounded-full transition-all ${
+                    item.groupe === 'artistes'
+                      ? 'bg-primary text-white shadow-lg shadow-primary/30'
+                      : 'text-gray-300 hover:bg-white/10'
+                  }`}
+                >
+                  <Users size={16} />
+                  <span className="text-sm">Artistes</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handlePlanningItemChange(item.id, 'groupe', 'techniques')}
+                  className={`flex items-center gap-1 px-3 py-1.5 rounded-full transition-all ${
+                    item.groupe === 'techniques'
+                      ? 'bg-secondary text-white shadow-lg shadow-secondary/30'
+                      : 'text-gray-300 hover:bg-white/10'
+                  }`}
+                >
+                  <Wrench size={16} />
+                  <span className="text-sm">Techniques</span>
+                </button>
+              </div>
+              
+              <button
+                type="button"
+                onClick={() => removePlanningItem(item.id)}
+                className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+                disabled={planningItems.length === 1}
+              >
+                <Trash2 size={18} />
+              </button>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={addPlanningItem}
+            className="flex items-center gap-2 text-primary hover:text-primary-600 transition-colors"
+          >
+            <Plus size={18} />
+            <span>Ajouter une étape</span>
+          </button>
         </div>
+      </div>
+
+      {/* Informations par spécialité */}
+      <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-6 shadow-lg">
+        <h2 className="text-xl font-semibold mb-4">Informations par spécialité</h2>
+        <div className="space-y-4">
+          {(['son', 'lumiere', 'plateau', 'general'] as SectionType[]).map((section) => (
+            <div
+              key={section}
+              className="border border-white/10 rounded-lg overflow-hidden"
+            >
+              <button
+                type="button"
+                onClick={() => toggleSection(section)}
+                className="w-full flex justify-between items-center p-4 bg-white/5 hover:bg-white/10 transition-colors"
+              >
+                <span className="font-medium capitalize">
+                  {section === 'general' ? 'Général' : section}
+                </span>
+                <ChevronDown
+                  size={20}
+                  className={`transform transition-transform ${
+                    expandedSections.has(section) ? 'rotate-180' : ''
+                  }`}
+                />
+              </button>
+              <AnimatePresence>
+                {expandedSections.has(section) && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="p-4 space-y-4">
+                      <div className="space-y-2">
+                        <label className="block text-sm font-medium">
+                          Texte d'information
+                        </label>
+                        <textarea
+                          value={eventTexts[section]}
+                          onChange={(e) =>
+                            handleEventTextChange(section, e.target.value)
+                          }
+                          placeholder={`Informations ${
+                            section === 'general' ? 'générales' : `pour ${section}`
+                          }`}
+                          className="w-full p-3 bg-white/5 border border-white/10 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
+                          rows={4}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="block text-sm font-medium flex items-center gap-2">
+                          <Link size={16} />
+                          Lien vers un fichier
+                        </label>
+                        <Input
+                          value={eventLinks[section]}
+                          onChange={(e) =>
+                            handleEventLinkChange(section, e.target.value)
+                          }
+                          placeholder="URL du fichier"
+                        />
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Spécialités requises */}
+      <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-6 shadow-lg">
+        <h2 className="text-xl font-semibold mb-4">Spécialités requises</h2>
+        <div className="flex flex-wrap gap-3">
+          {(['son', 'lumiere', 'plateau'] as Specialite[]).map((specialty) => (
+            <button
+              key={specialty}
+              type="button"
+              onClick={() => toggleSpecialty(specialty)}
+              className={`px-4 py-2 rounded-full border transition-all ${
+                selectedSpecialties.has(specialty)
+                  ? 'bg-primary/20 border-primary text-primary'
+                  : 'bg-white/5 border-white/10 text-gray-300 hover:bg-white/10'
+              }`}
+            >
+              {specialty.charAt(0).toUpperCase() + specialty.slice(1)}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Sélection des intermittents */}
+      <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-6 shadow-lg">
+        <h2 className="text-xl font-semibold mb-4">Sélection des intermittents</h2>
+        <div className="mb-4 relative">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <Search size={18} className="text-gray-400" />
+          </div>
+          <Input
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Rechercher par nom, prénom ou spécialité..."
+            className="pl-10"
+          />
+        </div>
+        <div className="max-h-80 overflow-y-auto pr-2 space-y-2">
+          {filteredIntermittents.length === 0 ? (
+            <p className="text-center text-gray-400 py-4">
+              Aucun intermittent trouvé
+            </p>
+          ) : (
+            filteredIntermittents.map((intermittent) => (
+              <div
+                key={intermittent.id}
+                onClick={() => toggleIntermittent(intermittent.id)}
+                className={`p-3 rounded-lg cursor-pointer transition-all flex items-center justify-between ${
+                  selectedIntermittents.has(intermittent.id)
+                    ? 'bg-primary/20 border border-primary/50'
+                    : 'bg-white/5 border border-white/10 hover:bg-white/10'
+                }`}
+              >
+                <div>
+                  <p className="font-medium">
+                    {intermittent.prenom} {intermittent.nom}
+                  </p>
+                  {intermittent.specialite && (
+                    <p className="text-sm text-gray-400">
+                      {intermittent.specialite}
+                    </p>
+                  )}
+                </div>
+                <div
+                  className={`w-5 h-5 rounded-full border flex items-center justify-center ${
+                    selectedIntermittents.has(intermittent.id)
+                      ? 'bg-primary border-primary'
+                      : 'border-gray-400'
+                  }`}
+                >
+                  {selectedIntermittents.has(intermittent.id) && (
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="3"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="text-white"
+                    >
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="flex justify-end gap-4">
+        <Button
+          variant="outline"
+          onClick={() => navigate(-1)}
+          disabled={isLoading}
+        >
+          Annuler
+        </Button>
+        <Button
+          variant="secondary"
+          onClick={() => handleSubmit(false)}
+          disabled={isLoading}
+        >
+          Enregistrer comme brouillon
+        </Button>
+        <Button
+          variant="primary"
+          onClick={() => handleSubmit(true)}
+          disabled={isLoading}
+        >
+          {isLoading ? (
+            <div className="flex items-center gap-2">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+              <span>En cours...</span>
+            </div>
+          ) : (
+            <span>Publier l'événement</span>
+          )}
+        </Button>
       </div>
     </div>
   );
