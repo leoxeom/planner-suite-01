@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Trash2, Edit, Users, Wrench } from 'lucide-react';
+import { Trash2, Edit, Users, Wrench, Check, X, Clock } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
@@ -8,6 +8,7 @@ import { fr } from 'date-fns/locale';
 import { supabase } from '../../lib/supabase';
 import { Button } from '../../components/ui/Button';
 import { FeuilleDeRouteDownload } from '../../components/events/FeuilleDeRouteDownload';
+import { EnhancedCalendar } from '../../components/dashboard/EnhancedCalendar';
 
 // Mise à jour de l'interface pour inclure le groupe
 interface PlanningItem {
@@ -34,6 +35,9 @@ interface IntermittentAssignment {
   specialite: string | null;
 }
 
+// Type pour le statut de sélection des intermittents
+type SelectionStatus = 'selected' | 'not_selected' | 'pending';
+
 export const EventDetails: React.FC = () => {
   const { eventId } = useParams<{ eventId: string }>();
   const navigate = useNavigate();
@@ -48,7 +52,10 @@ export const EventDetails: React.FC = () => {
   const [planningItems, setPlanningItems] = useState<PlanningItem[]>([]);
   const [infoFields, setInfoFields] = useState<EventInfoField[]>([]);
   const [intermittentAssignments, setIntermittentAssignments] = useState<IntermittentAssignment[]>([]);
-  const [selectedIntermittents, setSelectedIntermittents] = useState<Set<string>>(new Set());
+  
+  // Nouveau state pour gérer le statut de sélection de chaque intermittent
+  const [intermittentSelectionStatus, setIntermittentSelectionStatus] = useState<Record<string, SelectionStatus>>({});
+  
   const [isLoading, setIsLoading] = useState(true);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isTeamFinalized, setIsTeamFinalized] = useState(false);
@@ -127,13 +134,22 @@ export const EventDetails: React.FC = () => {
         );
         setIsTeamFinalized(isFinalized);
 
-        // Pre-select validated intermittents
-        const validatedIds = new Set(
-          formattedAssignments
-            .filter(a => a.statut_disponibilite === 'valide')
-            .map(a => a.intermittent_profile_id)
-        );
-        setSelectedIntermittents(validatedIds);
+        // Initialize selection status for each intermittent
+        const initialSelectionStatus: Record<string, SelectionStatus> = {};
+        formattedAssignments.forEach(a => {
+          if (a.statut_disponibilite === 'valide') {
+            initialSelectionStatus[a.intermittent_profile_id] = 'selected';
+          } else if (a.statut_disponibilite === 'non_retenu') {
+            initialSelectionStatus[a.intermittent_profile_id] = 'not_selected';
+          } else if (a.statut_disponibilite === 'disponible' || a.statut_disponibilite === 'incertain') {
+            initialSelectionStatus[a.intermittent_profile_id] = 'pending';
+          } else if (a.statut_disponibilite === 'propose') {
+            initialSelectionStatus[a.intermittent_profile_id] = 'pending';
+          } else {
+            initialSelectionStatus[a.intermittent_profile_id] = 'pending';
+          }
+        });
+        setIntermittentSelectionStatus(initialSelectionStatus);
       }
 
     } catch (error) {
@@ -166,33 +182,57 @@ export const EventDetails: React.FC = () => {
     }
   };
 
+  // Fonction pour cycler entre les 3 états de sélection
   const toggleIntermittentSelection = (intermittentProfileId: string) => {
-    const newSelected = new Set(selectedIntermittents);
-    if (newSelected.has(intermittentProfileId)) {
-      newSelected.delete(intermittentProfileId);
-    } else {
-      newSelected.add(intermittentProfileId);
-    }
-    setSelectedIntermittents(newSelected);
+    setIntermittentSelectionStatus(prev => {
+      const currentStatus = prev[intermittentProfileId] || 'pending';
+      let newStatus: SelectionStatus;
+      
+      // Cycle entre les états : pending -> selected -> not_selected -> pending
+      if (currentStatus === 'pending') {
+        newStatus = 'selected';
+      } else if (currentStatus === 'selected') {
+        newStatus = 'not_selected';
+      } else {
+        newStatus = 'pending';
+      }
+      
+      return {
+        ...prev,
+        [intermittentProfileId]: newStatus
+      };
+    });
   };
 
   const handleValidateTeam = async () => {
     try {
       setIsLoading(true);
       
-      // Get all intermittents that have responded as available or uncertain
-      const respondedIntermittents = intermittentAssignments.filter(
-        a => ['disponible', 'incertain', 'propose'].includes(a.statut_disponibilite)
-      );
+      // Préparer les mises à jour pour chaque intermittent selon son statut de sélection
+      const updates = [];
       
-      // Update status based on selection
-      const updates = respondedIntermittents.map(assignment => ({
-        id: assignment.id,
-        statut_disponibilite: selectedIntermittents.has(assignment.intermittent_profile_id) 
-          ? 'valide' 
-          : 'non_retenu'
-      }));
+      for (const assignment of intermittentAssignments) {
+        const selectionStatus = intermittentSelectionStatus[assignment.intermittent_profile_id];
+        const currentStatus = assignment.statut_disponibilite;
+        
+        // Ne mettre à jour que si l'intermittent a répondu (disponible, incertain) ou s'il est explicitement marqué comme non retenu
+        if (
+          // Cas 1: L'intermittent est sélectionné et a répondu (disponible ou incertain)
+          (selectionStatus === 'selected' && (currentStatus === 'disponible' || currentStatus === 'incertain')) ||
+          // Cas 2: L'intermittent est explicitement non retenu et a répondu
+          (selectionStatus === 'not_selected' && (currentStatus === 'disponible' || currentStatus === 'incertain')) ||
+          // Cas 3: L'intermittent est explicitement non retenu et était en attente
+          (selectionStatus === 'not_selected' && currentStatus === 'propose')
+        ) {
+          updates.push({
+            id: assignment.id,
+            statut_disponibilite: selectionStatus === 'selected' ? 'valide' : 'non_retenu'
+          });
+        }
+        // Les intermittents en 'pending' ou ceux qui n'ont pas encore répondu restent inchangés
+      }
       
+      // Effectuer les mises à jour en base de données
       if (updates.length > 0) {
         for (const update of updates) {
           const { error } = await supabase
@@ -204,7 +244,7 @@ export const EventDetails: React.FC = () => {
         }
       }
       
-      toast.success('Équipe validée avec succès');
+      toast.success('Équipe mise à jour avec succès');
       setIsTeamFinalized(true);
       fetchEventData(); // Refresh data
     } catch (error) {
@@ -221,6 +261,103 @@ export const EventDetails: React.FC = () => {
       return format(date, 'PPP à HH:mm', { locale: fr });
     } catch (e) {
       return dateString;
+    }
+  };
+
+  const handleDuplicateEvent = async (event: any, startDate: Date) => {
+    try {
+      setIsLoading(true);
+      
+      // Récupérer toutes les données de l'événement actuel
+      const { data: currentEvent, error: eventError } = await supabase
+        .from('events')
+        .select('*')
+        .eq('id', eventId)
+        .single();
+
+      if (eventError) throw eventError;
+      
+      // Calculer la différence de jours entre la date d'origine et la nouvelle date
+      const originalDate = new Date(currentEvent.date_debut);
+      const daysDiff = Math.floor((startDate.getTime() - originalDate.getTime()) / (1000 * 60 * 60 * 24));
+      
+      // Créer les nouvelles dates en ajoutant la différence
+      const newStartDate = new Date(currentEvent.date_debut);
+      newStartDate.setDate(newStartDate.getDate() + daysDiff);
+      
+      const newEndDate = new Date(currentEvent.date_fin);
+      newEndDate.setDate(newEndDate.getDate() + daysDiff);
+      
+      // Créer le nouvel événement
+      const { data: newEvent, error: createError } = await supabase
+        .from('events')
+        .insert({
+          ...currentEvent,
+          id: undefined, // Laisser Supabase générer un nouvel ID
+          date_debut: newStartDate.toISOString(),
+          date_fin: newEndDate.toISOString(),
+          statut_evenement: 'brouillon', // Commencer comme brouillon
+          created_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+
+      if (createError) throw createError;
+      
+      // Récupérer les items de planning actuels
+      const { data: planningItems, error: planningError } = await supabase
+        .from('event_planning_items')
+        .select('*')
+        .eq('event_id', eventId);
+
+      if (planningError) throw planningError;
+      
+      // Dupliquer les items de planning
+      if (planningItems && planningItems.length > 0) {
+        const newPlanningItems = planningItems.map(item => ({
+          ...item,
+          id: undefined, // Laisser Supabase générer un nouvel ID
+          event_id: newEvent.id
+        }));
+        
+        const { error: insertPlanningError } = await supabase
+          .from('event_planning_items')
+          .insert(newPlanningItems);
+          
+        if (insertPlanningError) throw insertPlanningError;
+      }
+      
+      // Récupérer les champs d'information
+      const { data: infoFields, error: infoError } = await supabase
+        .from('event_information_fields')
+        .select('*')
+        .eq('event_id', eventId);
+
+      if (infoError) throw infoError;
+      
+      // Dupliquer les champs d'information
+      if (infoFields && infoFields.length > 0) {
+        const newInfoFields = infoFields.map(field => ({
+          ...field,
+          id: undefined, // Laisser Supabase générer un nouvel ID
+          event_id: newEvent.id
+        }));
+        
+        const { error: insertInfoError } = await supabase
+          .from('event_information_fields')
+          .insert(newInfoFields);
+          
+        if (insertInfoError) throw insertInfoError;
+      }
+      
+      toast.success(`Événement dupliqué pour le ${format(newStartDate, 'PPP', { locale: fr })}`);
+      navigate(`/dashboard/regisseur/events/${newEvent.id}/edit`);
+      
+    } catch (error) {
+      console.error('Error duplicating event:', error);
+      toast.error('Erreur lors de la duplication de l\'événement');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -431,20 +568,39 @@ export const EventDetails: React.FC = () => {
               </div>
             )}
             
-            {/* Available intermittents */}
-            {!isTeamFinalized && (groupedIntermittents.disponible.length > 0 || groupedIntermittents.incertain.length > 0) && (
+            {/* Available intermittents with 3-state selection */}
+            {(groupedIntermittents.disponible.length > 0 || groupedIntermittents.incertain.length > 0 || groupedIntermittents.propose.length > 0) && (
               <div>
-                <h3 className="font-medium mb-3">Intermittents disponibles</h3>
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="font-medium">Intermittents disponibles</h3>
+                  <div className="flex items-center gap-4 text-sm text-gray-400">
+                    <div className="flex items-center gap-1">
+                      <div className="w-3 h-3 rounded-full bg-green-400"></div>
+                      <span>Sélectionné</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <div className="w-3 h-3 rounded-full bg-red-400"></div>
+                      <span>Non retenu</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <div className="w-3 h-3 rounded-full bg-gray-400"></div>
+                      <span>En attente</span>
+                    </div>
+                  </div>
+                </div>
+                
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {/* Available */}
+                  {/* Disponible */}
                   {groupedIntermittents.disponible.map(assignment => (
                     <div
                       key={assignment.id}
                       onClick={() => toggleIntermittentSelection(assignment.intermittent_profile_id)}
-                      className={`p-3 rounded-lg cursor-pointer transition-all flex items-center justify-between ${
-                        selectedIntermittents.has(assignment.intermittent_profile_id)
-                          ? 'bg-primary/20 border border-primary/50'
-                          : 'bg-white/5 border border-white/10 hover:bg-white/10'
+                      className={`p-3 rounded-lg cursor-pointer transition-all flex items-center justify-between border ${
+                        intermittentSelectionStatus[assignment.intermittent_profile_id] === 'selected'
+                          ? 'bg-green-900/20 border-green-500/30'
+                          : intermittentSelectionStatus[assignment.intermittent_profile_id] === 'not_selected'
+                          ? 'bg-red-900/20 border-red-500/30'
+                          : 'bg-white/5 border-white/10 hover:bg-white/10'
                       }`}
                     >
                       <div>
@@ -458,42 +614,35 @@ export const EventDetails: React.FC = () => {
                           </span>
                         </div>
                       </div>
-                      <div
-                        className={`w-5 h-5 rounded-full border flex items-center justify-center ${
-                          selectedIntermittents.has(assignment.intermittent_profile_id)
-                            ? 'bg-primary border-primary'
-                            : 'border-gray-400'
-                        }`}
-                      >
-                        {selectedIntermittents.has(assignment.intermittent_profile_id) && (
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="12"
-                            height="12"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="3"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            className="text-white"
-                          >
-                            <polyline points="20 6 9 17 4 12"></polyline>
-                          </svg>
+                      <div className="flex items-center gap-1">
+                        {intermittentSelectionStatus[assignment.intermittent_profile_id] === 'selected' ? (
+                          <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center">
+                            <Check size={14} className="text-white" />
+                          </div>
+                        ) : intermittentSelectionStatus[assignment.intermittent_profile_id] === 'not_selected' ? (
+                          <div className="w-6 h-6 rounded-full bg-red-500 flex items-center justify-center">
+                            <X size={14} className="text-white" />
+                          </div>
+                        ) : (
+                          <div className="w-6 h-6 rounded-full bg-gray-500/50 flex items-center justify-center">
+                            <Clock size={14} className="text-white" />
+                          </div>
                         )}
                       </div>
                     </div>
                   ))}
                   
-                  {/* Uncertain */}
+                  {/* Incertain */}
                   {groupedIntermittents.incertain.map(assignment => (
                     <div
                       key={assignment.id}
                       onClick={() => toggleIntermittentSelection(assignment.intermittent_profile_id)}
-                      className={`p-3 rounded-lg cursor-pointer transition-all flex items-center justify-between ${
-                        selectedIntermittents.has(assignment.intermittent_profile_id)
-                          ? 'bg-primary/20 border border-primary/50'
-                          : 'bg-white/5 border border-white/10 hover:bg-white/10'
+                      className={`p-3 rounded-lg cursor-pointer transition-all flex items-center justify-between border ${
+                        intermittentSelectionStatus[assignment.intermittent_profile_id] === 'selected'
+                          ? 'bg-green-900/20 border-green-500/30'
+                          : intermittentSelectionStatus[assignment.intermittent_profile_id] === 'not_selected'
+                          ? 'bg-red-900/20 border-red-500/30'
+                          : 'bg-white/5 border-white/10 hover:bg-white/10'
                       }`}
                     >
                       <div>
@@ -507,28 +656,61 @@ export const EventDetails: React.FC = () => {
                           </span>
                         </div>
                       </div>
-                      <div
-                        className={`w-5 h-5 rounded-full border flex items-center justify-center ${
-                          selectedIntermittents.has(assignment.intermittent_profile_id)
-                            ? 'bg-primary border-primary'
-                            : 'border-gray-400'
-                        }`}
-                      >
-                        {selectedIntermittents.has(assignment.intermittent_profile_id) && (
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="12"
-                            height="12"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="3"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            className="text-white"
-                          >
-                            <polyline points="20 6 9 17 4 12"></polyline>
-                          </svg>
+                      <div className="flex items-center gap-1">
+                        {intermittentSelectionStatus[assignment.intermittent_profile_id] === 'selected' ? (
+                          <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center">
+                            <Check size={14} className="text-white" />
+                          </div>
+                        ) : intermittentSelectionStatus[assignment.intermittent_profile_id] === 'not_selected' ? (
+                          <div className="w-6 h-6 rounded-full bg-red-500 flex items-center justify-center">
+                            <X size={14} className="text-white" />
+                          </div>
+                        ) : (
+                          <div className="w-6 h-6 rounded-full bg-gray-500/50 flex items-center justify-center">
+                            <Clock size={14} className="text-white" />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  
+                  {/* Proposé (en attente de réponse) */}
+                  {groupedIntermittents.propose.map(assignment => (
+                    <div
+                      key={assignment.id}
+                      onClick={() => toggleIntermittentSelection(assignment.intermittent_profile_id)}
+                      className={`p-3 rounded-lg cursor-pointer transition-all flex items-center justify-between border ${
+                        intermittentSelectionStatus[assignment.intermittent_profile_id] === 'selected'
+                          ? 'bg-green-900/20 border-green-500/30'
+                          : intermittentSelectionStatus[assignment.intermittent_profile_id] === 'not_selected'
+                          ? 'bg-red-900/20 border-red-500/30'
+                          : 'bg-white/5 border-white/10 hover:bg-white/10'
+                      }`}
+                    >
+                      <div>
+                        <p className="font-medium">{assignment.prenom} {assignment.nom}</p>
+                        <div className="flex items-center gap-2">
+                          {assignment.specialite && (
+                            <p className="text-sm text-gray-400">{assignment.specialite}</p>
+                          )}
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                            En attente de réponse
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {intermittentSelectionStatus[assignment.intermittent_profile_id] === 'selected' ? (
+                          <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center">
+                            <Check size={14} className="text-white" />
+                          </div>
+                        ) : intermittentSelectionStatus[assignment.intermittent_profile_id] === 'not_selected' ? (
+                          <div className="w-6 h-6 rounded-full bg-red-500 flex items-center justify-center">
+                            <X size={14} className="text-white" />
+                          </div>
+                        ) : (
+                          <div className="w-6 h-6 rounded-full bg-gray-500/50 flex items-center justify-center">
+                            <Clock size={14} className="text-white" />
+                          </div>
                         )}
                       </div>
                     </div>
@@ -547,63 +729,9 @@ export const EventDetails: React.FC = () => {
                         <span>En cours...</span>
                       </div>
                     ) : (
-                      <span>Valider l'équipe</span>
+                      <span>Mettre à jour l'équipe</span>
                     )}
                   </Button>
-                </div>
-              </div>
-            )}
-            
-            {/* Proposed but no response yet */}
-            {groupedIntermittents.propose.length > 0 && (
-              <div>
-                <h3 className="font-medium text-yellow-400 mb-3">En attente de réponse</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {groupedIntermittents.propose.map(assignment => (
-                    <div
-                      key={assignment.id}
-                      className={`p-3 rounded-lg bg-white/5 border border-white/10 ${
-                        !isTeamFinalized ? 'cursor-pointer hover:bg-white/10' : ''
-                      }`}
-                      onClick={() => !isTeamFinalized && toggleIntermittentSelection(assignment.intermittent_profile_id)}
-                    >
-                      <p className="font-medium">{assignment.prenom} {assignment.nom}</p>
-                      <div className="flex items-center gap-2">
-                        {assignment.specialite && (
-                          <p className="text-sm text-gray-400">{assignment.specialite}</p>
-                        )}
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
-                          En attente
-                        </span>
-                      </div>
-                      {!isTeamFinalized && (
-                        <div
-                          className={`w-5 h-5 rounded-full border mt-2 flex items-center justify-center ${
-                            selectedIntermittents.has(assignment.intermittent_profile_id)
-                              ? 'bg-primary border-primary'
-                              : 'border-gray-400'
-                          }`}
-                        >
-                          {selectedIntermittents.has(assignment.intermittent_profile_id) && (
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              width="12"
-                              height="12"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="3"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              className="text-white"
-                            >
-                              <polyline points="20 6 9 17 4 12"></polyline>
-                            </svg>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  ))}
                 </div>
               </div>
             )}
