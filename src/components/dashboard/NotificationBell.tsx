@@ -1,92 +1,164 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bell } from 'lucide-react';
-import { useNotificationStore } from '../../store/notificationStore';
+import { useAuthStore } from '../../store/authStore';
+import { supabase } from '../../lib/supabase';
+import { NotificationPanel } from './NotificationPanel';
 
 export const NotificationBell: React.FC = () => {
-  const { notifications, unreadCount, markAsRead } = useNotificationStore();
-  const [isOpen, setIsOpen] = useState(false);
+  const { user } = useAuthStore();
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [isPanelOpen, setIsPanelOpen] = useState(false);
+  const [hasNewNotification, setHasNewNotification] = useState(false);
 
-  const handleNotificationClick = async (id: string) => {
-    await markAsRead(id);
-    setIsOpen(false);
+  // Charger les notifications non lues au chargement
+  useEffect(() => {
+    if (user) {
+      fetchUnreadNotifications();
+      subscribeToNotifications();
+    }
+
+    return () => {
+      // Nettoyer l'abonnement lors du démontage
+      if (user) {
+        supabase.removeAllChannels();
+      }
+    };
+  }, [user]);
+
+  // Effet pour animer la cloche quand il y a de nouvelles notifications
+  useEffect(() => {
+    if (unreadCount > 0) {
+      setHasNewNotification(true);
+      const timer = setTimeout(() => {
+        setHasNewNotification(false);
+      }, 3000); // Animation pendant 3 secondes
+
+      return () => clearTimeout(timer);
+    }
+  }, [unreadCount]);
+
+  // Récupérer le nombre de notifications non lues
+  const fetchUnreadNotifications = async () => {
+    try {
+      const { count, error } = await supabase
+        .from('notifications')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user!.id)
+        .eq('is_read', false);
+
+      if (error) throw error;
+      setUnreadCount(count || 0);
+    } catch (error) {
+      console.error('Error fetching unread notifications:', error);
+    }
   };
 
-  return (
-    <div className="relative">
-      <button 
-        onClick={() => setIsOpen(!isOpen)}
-        className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-700 transition-colors"
-        data-tooltip="Notifications"
-      >
-        <Bell size={24} />
-        <AnimatePresence>
-          {unreadCount > 0 && (
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0 }}
-              className="absolute -top-1 -right-1 bg-error-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center"
-            >
-              {unreadCount}
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </button>
+  // S'abonner aux nouvelles notifications en temps réel
+  const subscribeToNotifications = () => {
+    const channel = supabase
+      .channel('notification_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${user!.id}`,
+        },
+        (payload) => {
+          // Incrémenter le compteur quand une nouvelle notification arrive
+          setUnreadCount((prev) => prev + 1);
+          // Déclencher l'animation
+          setHasNewNotification(true);
+          setTimeout(() => setHasNewNotification(false), 3000);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${user!.id} AND is_read=eq.true`,
+        },
+        (payload) => {
+          // Mettre à jour le compteur quand une notification est marquée comme lue
+          fetchUnreadNotifications();
+        }
+      )
+      .subscribe();
 
-      <AnimatePresence>
-        {isOpen && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/20 dark:bg-black/40 z-40"
-              onClick={() => setIsOpen(false)}
-            />
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="absolute right-0 mt-2 w-80 bg-white dark:bg-dark-800 rounded-xl shadow-lg z-50"
-            >
-              <div className="p-4 border-b border-gray-200 dark:border-dark-700">
-                <h3 className="text-lg font-semibold">Notifications</h3>
-              </div>
-              <div className="max-h-96 overflow-y-auto">
-                {notifications.length === 0 ? (
-                  <div className="p-4 text-center text-gray-500 dark:text-gray-400">
-                    Aucune notification
-                  </div>
-                ) : (
-                  notifications.map((notification) => (
-                    <button
-                      key={notification.id}
-                      onClick={() => handleNotificationClick(notification.id)}
-                      className={`w-full p-4 text-left border-b border-gray-100 dark:border-dark-700 hover:bg-gray-50 dark:hover:bg-dark-700/50 transition-colors ${
-                        !notification.isRead ? 'bg-primary-50 dark:bg-primary-900/20' : ''
-                      }`}
-                    >
-                      <h4 className="font-medium mb-1">{notification.title}</h4>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        {notification.message}
-                      </p>
-                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
-                        {new Date(notification.createdAt).toLocaleDateString('fr-FR', {
-                          day: 'numeric',
-                          month: 'long',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </p>
-                    </button>
-                  ))
-                )}
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
-    </div>
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  };
+
+  // Animation pour la cloche
+  const bellAnimation = hasNewNotification
+    ? {
+        rotate: [0, 15, -15, 10, -10, 5, -5, 0],
+        transition: {
+          duration: 0.8,
+          ease: "easeInOut",
+          times: [0, 0.1, 0.3, 0.5, 0.6, 0.7, 0.8, 1],
+          repeat: 1,
+        },
+      }
+    : {};
+
+  return (
+    <>
+      <motion.button
+        whileTap={{ scale: 0.95 }}
+        onClick={() => setIsPanelOpen(!isPanelOpen)}
+        className="relative p-2.5 rounded-xl bg-dark-800/25 dark:bg-dark-800/50 backdrop-blur-lg backdrop-saturate-150 border border-white/10 text-dark-800 dark:text-white transition-all duration-300 hover:bg-dark-700/30 dark:hover:bg-dark-700/70"
+        aria-label="Notifications"
+        animate={bellAnimation}
+      >
+        <motion.div className="relative">
+          <Bell size={22} className="text-primary-400" />
+          
+          {/* Badge pour le nombre de notifications non lues */}
+          <AnimatePresence>
+            {unreadCount > 0 && (
+              <motion.div
+                initial={{ scale: 0, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0, opacity: 0 }}
+                className="absolute -top-2 -right-2 bg-primary text-white text-xs font-bold rounded-full flex items-center justify-center"
+                style={{ 
+                  minWidth: '18px', 
+                  height: '18px',
+                  padding: unreadCount > 9 ? '0 4px' : '0'
+                }}
+              >
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </motion.div>
+            )}
+          </AnimatePresence>
+          
+          {/* Effet de pulsation */}
+          <motion.div
+            className="absolute inset-0 rounded-full bg-primary-500/20"
+            animate={{ 
+              scale: hasNewNotification ? [1, 1.5, 1] : [1, 1.2, 1],
+              opacity: hasNewNotification ? [0, 0.7, 0] : [0, 0.5, 0],
+            }}
+            transition={{ 
+              duration: hasNewNotification ? 0.8 : 1,
+              repeat: hasNewNotification ? 3 : Infinity,
+              repeatDelay: hasNewNotification ? 0.2 : 2,
+            }}
+          />
+        </motion.div>
+      </motion.button>
+      
+      {/* Panneau de notifications */}
+      <NotificationPanel 
+        isOpen={isPanelOpen} 
+        onClose={() => setIsPanelOpen(false)} 
+      />
+    </>
   );
 };
