@@ -172,7 +172,7 @@ export const EventDetails: React.FC = () => {
       if (error) throw error;
       
       toast.success('Événement supprimé avec succès');
-      navigate('/dashboard/regisseur');
+      navigate('/dashboard');
     } catch (error) {
       console.error('Error deleting event:', error);
       toast.error('Erreur lors de la suppression de l\'événement');
