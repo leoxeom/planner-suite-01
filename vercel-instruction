@@ -1,0 +1,52 @@
+Notes
+
+Aucun fichier AGENTS.md n’est présent dans le dépôt. Le projet est une application React/TypeScript utilisant Vite, TailwindCSS et Supabase pour la gestion des données. Les variables d’environnement pour Supabase sont requises par src/lib/supabase.ts.
+
+Summary
+
+Les variables VITE_SUPABASE_URL et VITE_SUPABASE_ANON_KEY sont lues lors de l’initialisation de Supabase
+
+Les scripts disponibles pour lancer, construire et prévisualiser l’application sont déclarés dans package.json
+
+Pour déployer ce dépôt sur Vercel à partir de GitHub :
+
+Préparation du dépôt GitHub
+
+Poussez ce dépôt sur GitHub si ce n’est pas déjà fait.
+
+Dans le code, aucune configuration Vercel spécifique n’est nécessaire : Vercel détectera automatiquement Vite via le script npm run build et utilisera dist comme dossier de sortie.
+
+Création du projet Vercel
+
+Connectez-vous sur Vercel et choisissez “New Project”.
+
+Autorisez Vercel à accéder à votre compte GitHub et sélectionnez le dépôt.
+
+Configuration des variables d’environnement
+
+Dans l’onglet Environment Variables de votre projet Vercel, ajoutez :
+
+VITE_SUPABASE_URL : l’URL de votre instance Supabase
+
+VITE_SUPABASE_ANON_KEY : la clé anonyme correspondante
+Ces variables sont indispensables, comme indiqué dans le code ci-dessus.
+
+Paramètres de build
+
+Build Command : npm run build
+
+Output Directory : dist
+
+Ces valeurs correspondent aux scripts définis dans package.json et à la configuration par défaut de Vite.
+
+Déploiement
+
+Après avoir configuré les variables, lancez le déploiement depuis Vercel.
+
+Vercel installe les dépendances, exécute npm run build, puis sert les fichiers du dossier dist.
+
+Mises à jour
+
+Toute nouvelle modification poussée sur GitHub déclenchera un nouveau déploiement automatique sur Vercel.
+
+L’application reposant entièrement sur Supabase pour l’authentification et les données, assurez-vous que votre instance Supabase contient les tables et migrations nécessaires (fichiers SQL dans supabase/migrations/). Une fois la configuration Vercel terminée et les variables d’environnement en place, le déploiement se fera automatiquement via GitHub.
