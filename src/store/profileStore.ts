@@ -1,45 +1,98 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
-import { IntermittentProfile, RegisseurProfile, UserRole } from '../types/database.types';
 
-interface ProfileState {
-  // États
-  regisseurProfile: RegisseurProfile | null;
-  intermittentProfile: IntermittentProfile | null;
-  loading: boolean;
-  error: string | null;
-  userRole: UserRole | null;
-  
-  // Actions
-  fetchProfile: () => Promise<void>;
-  fetchRegisseurProfile: (userId: string) => Promise<RegisseurProfile | null>;
-  fetchIntermittentProfile: (userId: string) => Promise<IntermittentProfile | null>;
-  getUserRole: () => Promise<UserRole | null>;
-  updateRegisseurProfile: (profile: Partial<RegisseurProfile>) => Promise<void>;
-  updateIntermittentProfile: (profile: Partial<IntermittentProfile>) => Promise<void>;
-  clearProfile: () => void;
-  setError: (error: string | null) => void;
+// Types pour les profils
+interface RegisseurProfile {
+  id: string;
+  user_id: string | null;
+  nom: string;
+  prenom: string;
+  email: string;
+  telephone?: string;
+  organisation?: string;
+  logo_path?: string;
+  profil_complete: boolean;
 }
 
+interface IntermittentProfile {
+  id: string;
+  user_id: string | null;
+  nom: string;
+  prenom: string;
+  email: string;
+  telephone?: string;
+  specialite?: string;
+  bio?: string;
+  photo_path?: string;
+  adresse?: string;
+  numero_secu?: string;
+  numero_conges_spectacles?: string;
+  profil_complete: boolean;
+  organisme_principal_id?: string | null;
+}
+
+// Données par défaut pour éviter les crashes
+const defaultRegisseurProfile: RegisseurProfile = {
+  id: 'default-id',
+  user_id: null,
+  nom: 'Utilisateur',
+  prenom: 'Nouveau',
+  email: '',
+  organisation: 'Organisation',
+  profil_complete: false
+};
+
+const defaultIntermittentProfile: IntermittentProfile = {
+  id: 'default-id',
+  user_id: null,
+  nom: 'Utilisateur',
+  prenom: 'Nouveau',
+  email: '',
+  specialite: 'Non spécifié',
+  profil_complete: false,
+  organisme_principal_id: null
+};
+
+// Interface du store
+interface ProfileState {
+  regisseurProfile: RegisseurProfile | null;
+  intermittentProfile: IntermittentProfile | null;
+  isLoading: boolean;
+  error: string | null;
+  fetchProfile: () => Promise<void>;
+  updateRegisseurProfile: (profile: Partial<RegisseurProfile>) => Promise<void>;
+  updateIntermittentProfile: (profile: Partial<IntermittentProfile>) => Promise<void>;
+}
+
+// Création du store simplifié
 export const useProfileStore = create<ProfileState>((set, get) => ({
   regisseurProfile: null,
   intermittentProfile: null,
-  loading: false,
+  isLoading: false,
   error: null,
-  userRole: null,
 
+  // Méthode simplifiée pour récupérer le profil
   fetchProfile: async () => {
-    set({ loading: true, error: null });
+    console.debug('[ProfileStore] Fetching profile');
+    set({ isLoading: true, error: null });
     
     try {
+      // Récupérer l'utilisateur actuel
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {
-        set({ loading: false, error: 'Utilisateur non connecté' });
+        console.debug('[ProfileStore] No authenticated user found');
+        set({ 
+          isLoading: false, 
+          regisseurProfile: null, 
+          intermittentProfile: null 
+        });
         return;
       }
       
-      // Essayer de récupérer le profil régisseur
+      console.debug('[ProfileStore] User found:', user.email);
+      
+      // Vérifier si c'est un régisseur (version simplifiée)
       const { data: regisseurData, error: regisseurError } = await supabase
         .from('regisseur_profiles')
         .select('*')
@@ -47,16 +100,16 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
         .single();
       
       if (regisseurData && !regisseurError) {
+        console.debug('[ProfileStore] Régisseur profile found');
         set({ 
           regisseurProfile: regisseurData as RegisseurProfile, 
           intermittentProfile: null,
-          userRole: 'regisseur',
-          loading: false 
+          isLoading: false 
         });
         return;
       }
       
-      // Si pas de profil régisseur, essayer de récupérer le profil intermittent
+      // Vérifier si c'est un intermittent (version simplifiée)
       const { data: intermittentData, error: intermittentError } = await supabase
         .from('intermittent_profiles')
         .select('*')
@@ -64,182 +117,128 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
         .single();
       
       if (intermittentData && !intermittentError) {
+        console.debug('[ProfileStore] Intermittent profile found');
         set({ 
-          intermittentProfile: intermittentData as IntermittentProfile, 
-          regisseurProfile: null,
-          userRole: 'intermittent',
-          loading: false 
+          regisseurProfile: null, 
+          intermittentProfile: intermittentData as IntermittentProfile,
+          isLoading: false 
         });
         return;
       }
       
-      // Si aucun profil n'est trouvé
+      // Si aucun profil n'est trouvé, utiliser les valeurs par défaut
+      console.debug('[ProfileStore] No profile found, using defaults');
+      
+      // Déterminer le type d'utilisateur par défaut (basé sur les métadonnées)
+      const role = user.app_metadata?.role || 'intermittent';
+      
+      if (role === 'regisseur') {
+        set({ 
+          regisseurProfile: {
+            ...defaultRegisseurProfile,
+            user_id: user.id,
+            email: user.email || ''
+          },
+          intermittentProfile: null,
+          isLoading: false 
+        });
+      } else {
+        set({ 
+          regisseurProfile: null,
+          intermittentProfile: {
+            ...defaultIntermittentProfile,
+            user_id: user.id,
+            email: user.email || ''
+          },
+          isLoading: false 
+        });
+      }
+    } catch (error) {
+      console.error('[ProfileStore] Error fetching profile:', error);
       set({ 
-        loading: false, 
-        error: 'Aucun profil trouvé pour cet utilisateur',
-        regisseurProfile: null,
+        error: 'Erreur lors de la récupération du profil', 
+        isLoading: false,
+        // Fournir des profils par défaut pour éviter les crashes
+        regisseurProfile: { ...defaultRegisseurProfile },
         intermittentProfile: null
       });
-      
-    } catch (error) {
-      console.error('Error fetching profile:', error);
-      set({ 
-        loading: false, 
-        error: error instanceof Error ? error.message : 'Erreur lors de la récupération du profil' 
-      });
     }
   },
-  
-  fetchRegisseurProfile: async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('regisseur_profiles')
-        .select('*')
-        .eq('user_id', userId)
-        .single();
-      
-      if (error) throw error;
-      return data as RegisseurProfile;
-    } catch (error) {
-      console.error('Error fetching regisseur profile:', error);
-      return null;
-    }
-  },
-  
-  fetchIntermittentProfile: async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('intermittent_profiles')
-        .select('id, nom, prenom, email, specialite, profil_complete, organisme_principal_id')
-        .eq('user_id', userId)
-        .single();
-      
-      if (error) throw error;
-      return data as IntermittentProfile;
-    } catch (error) {
-      console.error('Error fetching intermittent profile:', error);
-      return null;
-    }
-  },
-  
-  getUserRole: async () => {
-    // Si le rôle est déjà en cache, le retourner
-    if (get().userRole) return get().userRole;
+
+  // Méthodes de mise à jour simplifiées
+  updateRegisseurProfile: async (profile) => {
+    console.debug('[ProfileStore] Updating regisseur profile');
+    set({ isLoading: true, error: null });
     
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return null;
-      
-      // Vérifier d'abord si c'est un régisseur
-      const { data: regisseurData } = await supabase
-        .from('regisseur_profiles')
-        .select('id')
-        .eq('user_id', user.id)
-        .single();
-      
-      if (regisseurData) {
-        set({ userRole: 'regisseur' });
-        return 'regisseur' as UserRole;
-      }
-      
-      // Sinon vérifier si c'est un intermittent
-      const { data: intermittentData } = await supabase
-        .from('intermittent_profiles')
-        .select('id')
-        .eq('user_id', user.id)
-        .single();
-      
-      if (intermittentData) {
-        set({ userRole: 'intermittent' });
-        return 'intermittent' as UserRole;
-      }
-      
-      // Si aucun profil n'est trouvé
-      return null;
-    } catch (error) {
-      console.error('Error getting user role:', error);
-      return null;
-    }
-  },
-  
-  updateRegisseurProfile: async (profile: Partial<RegisseurProfile>) => {
-    set({ loading: true, error: null });
-    
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Utilisateur non connecté');
-      
       const currentProfile = get().regisseurProfile;
-      if (!currentProfile) throw new Error('Aucun profil régisseur trouvé');
+      
+      if (!currentProfile?.id || currentProfile.id === 'default-id') {
+        console.debug('[ProfileStore] Cannot update default profile');
+        set({ isLoading: false });
+        return;
+      }
       
       const { error } = await supabase
         .from('regisseur_profiles')
-        .update({ 
-          ...profile, 
-          updated_at: new Date().toISOString() 
-        })
+        .update(profile)
         .eq('id', currentProfile.id);
       
       if (error) throw error;
       
-      // Mettre à jour le profil en local
       set({ 
-        regisseurProfile: { ...currentProfile, ...profile } as RegisseurProfile,
-        loading: false 
+        regisseurProfile: { ...currentProfile, ...profile },
+        isLoading: false 
       });
+      
+      console.debug('[ProfileStore] Regisseur profile updated successfully');
     } catch (error) {
-      console.error('Error updating regisseur profile:', error);
+      console.error('[ProfileStore] Error updating regisseur profile:', error);
       set({ 
-        loading: false, 
-        error: error instanceof Error ? error.message : 'Erreur lors de la mise à jour du profil' 
+        error: 'Erreur lors de la mise à jour du profil', 
+        isLoading: false 
       });
     }
   },
-  
-  updateIntermittentProfile: async (profile: Partial<IntermittentProfile>) => {
-    set({ loading: true, error: null });
+
+  updateIntermittentProfile: async (profile) => {
+    console.debug('[ProfileStore] Updating intermittent profile');
+    set({ isLoading: true, error: null });
     
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Utilisateur non connecté');
-      
       const currentProfile = get().intermittentProfile;
-      if (!currentProfile) throw new Error('Aucun profil intermittent trouvé');
+      
+      if (!currentProfile?.id || currentProfile.id === 'default-id') {
+        console.debug('[ProfileStore] Cannot update default profile');
+        set({ isLoading: false });
+        return;
+      }
       
       const { error } = await supabase
         .from('intermittent_profiles')
-        .update({ 
-          ...profile, 
-          updated_at: new Date().toISOString() 
-        })
+        .update(profile)
         .eq('id', currentProfile.id);
       
       if (error) throw error;
       
-      // Mettre à jour le profil en local
       set({ 
-        intermittentProfile: { ...currentProfile, ...profile } as IntermittentProfile,
-        loading: false 
+        intermittentProfile: { ...currentProfile, ...profile },
+        isLoading: false 
       });
+      
+      console.debug('[ProfileStore] Intermittent profile updated successfully');
     } catch (error) {
-      console.error('Error updating intermittent profile:', error);
+      console.error('[ProfileStore] Error updating intermittent profile:', error);
       set({ 
-        loading: false, 
-        error: error instanceof Error ? error.message : 'Erreur lors de la mise à jour du profil' 
+        error: 'Erreur lors de la mise à jour du profil', 
+        isLoading: false 
       });
     }
-  },
-  
-  clearProfile: () => {
-    set({ 
-      regisseurProfile: null, 
-      intermittentProfile: null,
-      userRole: null,
-      error: null 
-    });
-  },
-  
-  setError: (error: string | null) => {
-    set({ error });
   }
 }));
+
+// Initialiser le profil au démarrage de l'application
+export const initializeProfile = async () => {
+  console.debug('[ProfileStore] Initializing profile');
+  await useProfileStore.getState().fetchProfile();
+};
