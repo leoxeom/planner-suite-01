@@ -463,7 +463,10 @@ export const CreateEvent: React.FC = () => {
             />
           </div>
         </div>
-      </div>lassName="bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-6 shadow-lg">
+      </div>
+
+      {/* Feuille de route */}
+      <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-6 shadow-lg">
         <h2 className="text-xl font-semibold mb-4">Feuille de route</h2>
         <div className="space-y-4">
           {planningItems.map((item, index) => (
