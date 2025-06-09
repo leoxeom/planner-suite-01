@@ -118,8 +118,8 @@ export const IntermittentProfile: React.FC = () => {
     
     setIsDeleting(true);
     try {
-      const { data, error } = await supabase.functions.invoke('delete-intermittent-user', {
-        body: { intermittent_user_id: profile.user_id }
+      const { data, error } = await supabase.rpc('delete_intermittent_user', {
+        intermittent_user_id: profile.user_id
       });
 
       if (error) throw error;
