@@ -271,7 +271,7 @@ export const CreateEvent: React.FC = () => {
         item => item.heure.trim() !== '' && item.intitule.trim() !== ''
       );
 
-      let eventId = '';
+      let currentEventId = '';
 
       if (isEditMode) {
         // Mise à jour de l'événement existant
@@ -290,25 +290,25 @@ export const CreateEvent: React.FC = () => {
           .single();
 
         if (updateError) throw updateError;
-        eventId = updatedEvent.id;
+        currentEventId = updatedEvent.id;
 
         // Supprimer les anciens items de planning
         await supabase
           .from('event_planning_items')
           .delete()
-          .eq('event_id', eventId);
+          .eq('event_id', currentEventId);
 
         // Supprimer les anciens champs d'information
         await supabase
           .from('event_information_fields')
           .delete()
-          .eq('event_id', eventId);
+          .eq('event_id', currentEventId);
 
         // Supprimer les anciennes assignations
         await supabase
           .from('event_intermittent_assignments')
           .delete()
-          .eq('event_id', eventId);
+          .eq('event_id', currentEventId);
       } else {
         // Création d'un nouvel événement
         const { data: newEvent, error: insertError } = await supabase
@@ -326,13 +326,13 @@ export const CreateEvent: React.FC = () => {
           .single();
 
         if (insertError) throw insertError;
-        eventId = newEvent.id;
+        currentEventId = newEvent.id;
       }
 
       // Insertion des items de planning
       if (validPlanningItems.length > 0) {
         const planningData = validPlanningItems.map((item, index) => ({
-          event_id: eventId,
+          event_id: currentEventId,
           heure: item.heure,
           intitule: item.intitule,
           ordre: index,
@@ -351,7 +351,7 @@ export const CreateEvent: React.FC = () => {
       for (const section of ['son', 'lumiere', 'plateau', 'general'] as SectionType[]) {
         if (eventTexts[section] || eventLinks[section]) {
           infoFields.push({
-            event_id: eventId,
+            event_id: currentEventId,
             type_champ: section,
             contenu_texte: eventTexts[section],
             chemin_fichier_supabase_storage: eventLinks[section],
@@ -370,7 +370,7 @@ export const CreateEvent: React.FC = () => {
       // Insertion des assignations d'intermittents
       if (selectedIntermittents.size > 0) {
         const assignments = Array.from(selectedIntermittents).map(intermittentId => ({
-          event_id: eventId,
+          event_id: currentEventId,
           intermittent_profile_id: intermittentId,
           statut_disponibilite: 'propose',
         }));
@@ -387,7 +387,7 @@ export const CreateEvent: React.FC = () => {
           ? 'Événement mis à jour avec succès'
           : 'Événement créé avec succès'
       );
-      navigate(`/dashboard/regisseur/events/${eventId}`);
+      navigate(`/dashboard/regisseur/events/${currentEventId}`);
     } catch (error) {
       console.error('Error submitting event:', error);
       toast.error('Erreur lors de la soumission de l\'événement');
