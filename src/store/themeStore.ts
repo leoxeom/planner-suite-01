@@ -1,207 +1,147 @@
 import { create } from 'zustand';
-import { supabase } from '../lib/supabase';
+import { persist } from 'zustand/middleware';
 
-interface ThemeState {
-  colors: {
-    primary: string;
-    secondary: string;
-  };
-  borderRadius: number;
-  organizationName: string | null;
-  logoUrl: string | null;
-  isLoading: boolean;
-  error: string | null;
-  isDarkMode: boolean;
-  toggleTheme: () => void;
-  fetchTheme: (userId: string, role: 'regisseur' | 'intermittent') => Promise<void>;
+// Types pour le thème
+interface ThemeColors {
+  primary: string;
+  secondary: string;
+  accent: string;
+  background: string;
+  text: string;
+  card: string;
+  border: string;
 }
 
-// Fonction utilitaire pour convertir une couleur hexadécimale en RGB
-const hexToRgb = (hex: string): { r: number; g: number; b: number } | null => {
-  // Supprimer le # si présent
-  hex = hex.replace(/^#/, '');
+export interface Theme {
+  name: string;
+  isDark: boolean;
+  colors: ThemeColors;
+  logoPath?: string;
+  organisation?: string;
+}
 
-  // Vérifier si c'est un format valide (3 ou 6 caractères)
-  if (!/^([A-Fa-f0-9]{3}){1,2}$/.test(hex)) {
-    console.warn(`Couleur hexadécimale invalide: ${hex}`);
-    return null;
-  }
+interface ThemeState {
+  currentTheme: Theme;
+  isDarkMode: boolean;
+  isLoading: boolean;
+  error: string | null;
+  setDarkMode: (isDark: boolean) => void;
+  setTheme: (theme: Theme) => void;
+  resetToDefault: () => void;
+}
 
-  // Étendre le format court (3 caractères) au format long (6 caractères)
-  if (hex.length === 3) {
-    hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
-  }
-
-  // Convertir en RGB
-  const r = parseInt(hex.substring(0, 2), 16);
-  const g = parseInt(hex.substring(2, 4), 16);
-  const b = parseInt(hex.substring(4, 6), 16);
-
-  return { r, g, b };
-};
-
-// Fonction pour appliquer les couleurs aux variables CSS
-const applyColorsToCSS = (primary: string, secondary: string): void => {
-  const primaryRgb = hexToRgb(primary);
-  const secondaryRgb = hexToRgb(secondary);
-
-  if (primaryRgb) {
-    // Variables de couleur primaire
-    document.documentElement.style.setProperty('--color-primary', primary);
-    document.documentElement.style.setProperty('--color-primary-rgb', `${primaryRgb.r}, ${primaryRgb.g}, ${primaryRgb.b}`);
-    document.documentElement.style.setProperty('--color-primary-50', `rgba(${primaryRgb.r}, ${primaryRgb.g}, ${primaryRgb.b}, 0.05)`);
-    document.documentElement.style.setProperty('--color-primary-100', `rgba(${primaryRgb.r}, ${primaryRgb.g}, ${primaryRgb.b}, 0.1)`);
-    document.documentElement.style.setProperty('--color-primary-200', `rgba(${primaryRgb.r}, ${primaryRgb.g}, ${primaryRgb.b}, 0.2)`);
-    document.documentElement.style.setProperty('--color-primary-300', `rgba(${primaryRgb.r}, ${primaryRgb.g}, ${primaryRgb.b}, 0.3)`);
-    document.documentElement.style.setProperty('--color-primary-400', `rgba(${primaryRgb.r}, ${primaryRgb.g}, ${primaryRgb.b}, 0.4)`);
-    document.documentElement.style.setProperty('--color-primary-500', primary);
-    document.documentElement.style.setProperty('--color-primary-600', `rgba(${primaryRgb.r}, ${primaryRgb.g}, ${primaryRgb.b}, 0.6)`);
-    document.documentElement.style.setProperty('--color-primary-700', `rgba(${primaryRgb.r}, ${primaryRgb.g}, ${primaryRgb.b}, 0.7)`);
-    document.documentElement.style.setProperty('--color-primary-800', `rgba(${primaryRgb.r}, ${primaryRgb.g}, ${primaryRgb.b}, 0.8)`);
-    document.documentElement.style.setProperty('--color-primary-900', `rgba(${primaryRgb.r}, ${primaryRgb.g}, ${primaryRgb.b}, 0.9)`);
-  }
-
-  if (secondaryRgb) {
-    // Variables de couleur secondaire
-    document.documentElement.style.setProperty('--color-secondary', secondary);
-    document.documentElement.style.setProperty('--color-secondary-rgb', `${secondaryRgb.r}, ${secondaryRgb.g}, ${secondaryRgb.b}`);
-    document.documentElement.style.setProperty('--color-secondary-50', `rgba(${secondaryRgb.r}, ${secondaryRgb.g}, ${secondaryRgb.b}, 0.05)`);
-    document.documentElement.style.setProperty('--color-secondary-100', `rgba(${secondaryRgb.r}, ${secondaryRgb.g}, ${secondaryRgb.b}, 0.1)`);
-    document.documentElement.style.setProperty('--color-secondary-200', `rgba(${secondaryRgb.r}, ${secondaryRgb.g}, ${secondaryRgb.b}, 0.2)`);
-    document.documentElement.style.setProperty('--color-secondary-300', `rgba(${secondaryRgb.r}, ${secondaryRgb.g}, ${secondaryRgb.b}, 0.3)`);
-    document.documentElement.style.setProperty('--color-secondary-400', `rgba(${secondaryRgb.r}, ${secondaryRgb.g}, ${secondaryRgb.b}, 0.4)`);
-    document.documentElement.style.setProperty('--color-secondary-500', secondary);
-    document.documentElement.style.setProperty('--color-secondary-600', `rgba(${secondaryRgb.r}, ${secondaryRgb.g}, ${secondaryRgb.b}, 0.6)`);
-    document.documentElement.style.setProperty('--color-secondary-700', `rgba(${secondaryRgb.r}, ${secondaryRgb.g}, ${secondaryRgb.b}, 0.7)`);
-    document.documentElement.style.setProperty('--color-secondary-800', `rgba(${secondaryRgb.r}, ${secondaryRgb.g}, ${secondaryRgb.b}, 0.8)`);
-    document.documentElement.style.setProperty('--color-secondary-900', `rgba(${secondaryRgb.r}, ${secondaryRgb.g}, ${secondaryRgb.b}, 0.9)`);
-  }
-
-  // Variables pour les composants UI
-  document.documentElement.style.setProperty('--color-button-primary-bg', primary);
-  document.documentElement.style.setProperty('--color-button-primary-text', '#ffffff');
-  document.documentElement.style.setProperty('--color-button-secondary-bg', secondary);
-  document.documentElement.style.setProperty('--color-button-secondary-text', '#ffffff');
-  document.documentElement.style.setProperty('--color-input-focus-ring', `rgba(${primaryRgb?.r || 0}, ${primaryRgb?.g || 127}, ${primaryRgb?.b || 255}, 0.25)`);
-  document.documentElement.style.setProperty('--color-link', primary);
-  document.documentElement.style.setProperty('--color-link-hover', secondary);
-};
-
-// Fonction pour détecter la préférence système pour le dark mode
-const getSystemPreference = (): boolean => {
-  return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-};
-
-// Fonction pour appliquer le dark mode au document
-const applyDarkMode = (isDark: boolean): void => {
-  if (isDark) {
-    document.documentElement.classList.add('dark');
-  } else {
-    document.documentElement.classList.remove('dark');
+// Thèmes par défaut
+const defaultLightTheme: Theme = {
+  name: 'Default Light',
+  isDark: false,
+  colors: {
+    primary: '#3b82f6',
+    secondary: '#10b981',
+    accent: '#8b5cf6',
+    background: '#f8fafc',
+    text: '#1e293b',
+    card: '#ffffff',
+    border: '#e2e8f0'
   }
 };
 
-export const useThemeStore = create<ThemeState>((set, get) => {
-  // Récupération de la préférence depuis localStorage ou utilisation de la préférence système
-  const storedPreference = localStorage.getItem('darkMode');
-  const initialDarkMode = storedPreference !== null 
-    ? storedPreference === 'true' 
-    : getSystemPreference();
-  
-  // Appliquer le mode initial
-  applyDarkMode(initialDarkMode);
-  
-  return {
-    colors: {
-      primary: '#007FFF',
-      secondary: '#F72798'
-    },
-    borderRadius: 12,
-    organizationName: null,
-    logoUrl: null,
-    isLoading: false,
-    error: null,
-    isDarkMode: initialDarkMode,
+const defaultDarkTheme: Theme = {
+  name: 'Default Dark',
+  isDark: true,
+  colors: {
+    primary: '#60a5fa',
+    secondary: '#34d399',
+    accent: '#a78bfa',
+    background: '#0f172a',
+    text: '#f1f5f9',
+    card: '#1e293b',
+    border: '#334155'
+  }
+};
 
-    toggleTheme: () => {
-      const newDarkMode = !get().isDarkMode;
-      
-      // Appliquer le nouveau mode
-      applyDarkMode(newDarkMode);
-      
-      // Sauvegarder la préférence
-      localStorage.setItem('darkMode', String(newDarkMode));
-      
-      // Mettre à jour l'état
-      set({ isDarkMode: newDarkMode });
-    },
+// Store de thème simplifié sans requêtes Supabase
+export const useThemeStore = create<ThemeState>()(
+  persist(
+    (set, get) => ({
+      currentTheme: defaultLightTheme,
+      isDarkMode: false,
+      isLoading: false,
+      error: null,
 
-    fetchTheme: async (userId: string, role: 'regisseur' | 'intermittent') => {
-      set({ isLoading: true, error: null });
-
-      try {
-        // Couleurs par défaut
-        const defaultPrimary = '#007FFF';
-        const defaultSecondary = '#F72798';
-        const defaultBorderRadius = 12;
-        
-        if (role === 'regisseur') {
-          // Fetch regisseur's own theme
-          const { data, error } = await supabase
-            .from('regisseur_profiles')
-            .select('organisation, logo_path')
-            .eq('user_id', userId)
-            .single();
-
-          if (error) throw error;
-          
-          // Appliquer le thème par défaut
-          applyColorsToCSS(defaultPrimary, defaultSecondary);
-          document.documentElement.style.setProperty('--global-border-radius', `${defaultBorderRadius}px`);
-
-          set({
-            colors: {
-              primary: defaultPrimary,
-              secondary: defaultSecondary
-            },
-            borderRadius: defaultBorderRadius,
-            organizationName: data?.organisation || null,
-            logoUrl: data?.logo_path || null,
-            isLoading: false
-          });
-        } else {
-          // Pour les intermittents, utiliser simplement le thème par défaut
-          // sans faire de requête inutile qui pourrait échouer
-          applyColorsToCSS(defaultPrimary, defaultSecondary);
-          document.documentElement.style.setProperty('--global-border-radius', `${defaultBorderRadius}px`);
-
-          set({
-            colors: {
-              primary: defaultPrimary,
-              secondary: defaultSecondary
-            },
-            borderRadius: defaultBorderRadius,
-            organizationName: null,
-            logoUrl: null,
-            isLoading: false
-          });
-        }
-      } catch (error) {
-        console.error('Error fetching theme:', error);
-        // Appliquer le thème par défaut en cas d'erreur
-        applyColorsToCSS('#007FFF', '#F72798');
-        document.documentElement.style.setProperty('--global-border-radius', '12px');
-        
+      setDarkMode: (isDark: boolean) => {
+        console.debug('[ThemeStore] Changing theme mode to:', isDark ? 'dark' : 'light');
+        const newTheme = isDark ? defaultDarkTheme : defaultLightTheme;
         set({ 
-          error: 'Failed to load theme', 
-          isLoading: false,
-          colors: {
-            primary: '#007FFF',
-            secondary: '#F72798'
-          },
-          borderRadius: 12
+          isDarkMode: isDark,
+          currentTheme: newTheme
+        });
+        
+        // Appliquer la classe au document pour le thème global
+        if (isDark) {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
+      },
+
+      setTheme: (theme: Theme) => {
+        console.debug('[ThemeStore] Setting custom theme:', theme.name);
+        set({ currentTheme: theme });
+      },
+
+      resetToDefault: () => {
+        console.debug('[ThemeStore] Resetting to default theme');
+        const isDark = get().isDarkMode;
+        set({ 
+          currentTheme: isDark ? defaultDarkTheme : defaultLightTheme,
+          error: null
         });
       }
+    }),
+    {
+      name: 'theme-storage',
+      partialize: (state) => ({ 
+        isDarkMode: state.isDarkMode,
+        // Ne pas persister les erreurs ou l'état de chargement
+        currentTheme: state.currentTheme
+      }),
+      onRehydrateStorage: () => {
+        console.debug('[ThemeStore] Hydrating theme from storage');
+        return (state) => {
+          if (state) {
+            console.debug('[ThemeStore] Theme hydrated:', state.isDarkMode ? 'dark' : 'light');
+            // Appliquer la classe dark au document si nécessaire
+            if (state.isDarkMode) {
+              document.documentElement.classList.add('dark');
+            } else {
+              document.documentElement.classList.remove('dark');
+            }
+          }
+        };
+      }
     }
-  };
-});
+  )
+);
+
+// Initialiser le thème au démarrage de l'application
+export const initializeTheme = () => {
+  console.debug('[ThemeStore] Initializing theme');
+  
+  // Vérifier la préférence système pour le mode sombre
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  console.debug('[ThemeStore] System prefers dark mode:', prefersDark);
+  
+  // Si le thème n'est pas déjà défini dans le store, utiliser la préférence système
+  const { isDarkMode, setDarkMode } = useThemeStore.getState();
+  
+  if (isDarkMode === undefined) {
+    setDarkMode(prefersDark);
+  } else {
+    // S'assurer que la classe dark est correctement appliquée
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }
+};
