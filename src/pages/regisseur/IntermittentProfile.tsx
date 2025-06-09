@@ -118,17 +118,33 @@ export const IntermittentProfile: React.FC = () => {
     
     setIsDeleting(true);
     try {
-      const { data, error } = await supabase.rpc('delete_intermittent_user', {
-        intermittent_user_id: profile.user_id
-      });
+      // 1. Supprimer d'abord les assignations d'événements
+      const { error: assignmentsError } = await supabase
+        .from('event_intermittent_assignments')
+        .delete()
+        .eq('intermittent_profile_id', profile.id);
 
-      if (error) throw error;
+      if (assignmentsError) {
+        console.error('Error deleting assignments:', assignmentsError);
+        throw new Error(`Erreur lors de la suppression des assignations: ${assignmentsError.message}`);
+      }
+
+      // 2. Supprimer ensuite le profil intermittent
+      const { error: profileError } = await supabase
+        .from('intermittent_profiles')
+        .delete()
+        .eq('id', profile.id);
+
+      if (profileError) {
+        console.error('Error deleting profile:', profileError);
+        throw new Error(`Erreur lors de la suppression du profil: ${profileError.message}`);
+      }
 
       toast.success(`Le profil de ${profile.prenom} ${profile.nom} a été supprimé`);
       navigate('/dashboard/intermittents');
     } catch (error) {
       console.error('Error deleting intermittent:', error);
-      toast.error('Erreur lors de la suppression du profil');
+      toast.error(error instanceof Error ? error.message : 'Erreur lors de la suppression du profil');
     } finally {
       setIsDeleting(false);
       setShowDeleteModal(false);
@@ -466,8 +482,7 @@ export const IntermittentProfile: React.FC = () => {
                 </div>
               </div>
             </Card>
-
-            <Card glass>
+            <Card glass glow>
               <div className="p-6">
                 <h2 className="text-xl font-semibold mb-4">Actions</h2>
                 <Button
