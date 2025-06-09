@@ -26,9 +26,9 @@ Configuration des variables d’environnement
 
 Dans l’onglet Environment Variables de votre projet Vercel, ajoutez :
 
-VITE_SUPABASE_URL : l’URL de votre instance Supabase
+VITE_SUPABASE_URL : https://ozcbzlobdjwvfyzersqs.supabase.co 
+VITE_SUPABASE_ANON_KEY : eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im96Y2J6bG9iZGp3dmZ5emVyc3FzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY5OTE1NjMsImV4cCI6MjA2MjU2NzU2M30.AoFcMwsSKUIiHtzc8RCaOxOjnBNGMV3Z6gawvx4k94U
 
-VITE_SUPABASE_ANON_KEY : la clé anonyme correspondante
 Ces variables sont indispensables, comme indiqué dans le code ci-dessus.
 
 Paramètres de build
