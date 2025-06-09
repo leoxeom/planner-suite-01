@@ -49,9 +49,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
 
       if (data.user) {
-        // Get role from user metadata
-        const role = data.user.user_metadata?.role as UserRole;
-        console.debug('[Auth] Sign in successful. User role:', role);
+        // Get role from app metadata instead of user metadata
+        const role = data.user.app_metadata?.role as UserRole;
+        console.debug('[Auth] Sign in successful. User data:', {
+          id: data.user.id,
+          email: data.user.email,
+          role: role,
+          app_metadata: data.user.app_metadata,
+          raw_app_meta_data: data.user.raw_app_meta_data
+        });
         
         set({ 
           user: { 
@@ -144,7 +150,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       console.debug('[Auth] Getting user role');
       const { data: { user } } = await supabase.auth.getUser();
-      const role = user?.user_metadata?.role as UserRole || null;
+      
+      if (!user) {
+        console.debug('[Auth] No user found when getting role');
+        return null;
+      }
+      
+      // Log all metadata for debugging
+      console.debug('[Auth] User metadata:', {
+        app_metadata: user.app_metadata,
+        raw_app_meta_data: user.raw_app_meta_data
+      });
+      
+      // Get role from app metadata instead of user metadata
+      const role = user.app_metadata?.role as UserRole || null;
       console.debug('[Auth] User role retrieved:', role);
       return role;
     } catch (error) {
@@ -168,7 +187,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       
       if (data.session) {
         console.debug('[Auth] Session refreshed successfully');
-        const role = data.user?.user_metadata?.role as UserRole;
+        
+        // Get role from app metadata instead of user metadata
+        const role = data.user?.app_metadata?.role as UserRole;
+        console.debug('[Auth] User data after refresh:', {
+          id: data.user?.id,
+          email: data.user?.email,
+          role: role,
+          app_metadata: data.user?.app_metadata,
+          raw_app_meta_data: data.user?.raw_app_meta_data
+        });
         
         set({ 
           user: data.user ? { ...data.user, role } : null,
@@ -197,9 +225,15 @@ export const initializeAuth = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     
     if (session?.user) {
-      // Get role from user metadata
-      const role = session.user.user_metadata?.role as UserRole;
-      console.debug('[Auth] Existing session found. User role:', role);
+      // Get role from app metadata instead of user metadata
+      const role = session.user.app_metadata?.role as UserRole;
+      console.debug('[Auth] Existing session found. User data:', {
+        id: session.user.id,
+        email: session.user.email,
+        role: role,
+        app_metadata: session.user.app_metadata,
+        raw_app_meta_data: session.user.raw_app_meta_data
+      });
       
       useAuthStore.setState({ 
         user: { 
@@ -220,8 +254,15 @@ export const initializeAuth = async () => {
         console.debug('[Auth] Auth state changed:', event);
         
         if (event === 'SIGNED_IN' && session) {
-          const role = session.user.user_metadata?.role as UserRole;
-          console.debug('[Auth] User signed in. Role:', role);
+          // Get role from app metadata instead of user metadata
+          const role = session.user.app_metadata?.role as UserRole;
+          console.debug('[Auth] User signed in. User data:', {
+            id: session.user.id,
+            email: session.user.email,
+            role: role,
+            app_metadata: session.user.app_metadata,
+            raw_app_meta_data: session.user.raw_app_meta_data
+          });
           
           useAuthStore.setState({
             user: {
@@ -237,7 +278,8 @@ export const initializeAuth = async () => {
         } else if (event === 'TOKEN_REFRESHED') {
           console.debug('[Auth] Token refreshed automatically');
           if (session) {
-            const role = session.user.user_metadata?.role as UserRole;
+            // Get role from app metadata instead of user metadata
+            const role = session.user.app_metadata?.role as UserRole;
             useAuthStore.setState({
               user: {
                 ...session.user,
@@ -249,7 +291,8 @@ export const initializeAuth = async () => {
         } else if (event === 'USER_UPDATED') {
           console.debug('[Auth] User data updated');
           if (session) {
-            const role = session.user.user_metadata?.role as UserRole;
+            // Get role from app metadata instead of user metadata
+            const role = session.user.app_metadata?.role as UserRole;
             useAuthStore.setState({
               user: {
                 ...session.user,
