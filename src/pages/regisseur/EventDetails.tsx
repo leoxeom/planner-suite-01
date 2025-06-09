@@ -1,16 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Trash2, Edit, Users, Wrench, Check, X, Clock } from 'lucide-react';
+import { ArrowLeft, Calendar, MapPin, Clock, Users, Download, Edit, Trash2, AlertTriangle, Check, X, User, Wrench } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
-import { format } from 'date-fns';
-import { fr } from 'date-fns/locale';
-import { supabase } from '../../lib/supabase';
 import { Button } from '../../components/ui/Button';
+import { Card } from '../../components/ui/Card';
+import { supabase } from '../../lib/supabase';
 import { FeuilleDeRouteDownload } from '../../components/events/FeuilleDeRouteDownload';
-import { EnhancedCalendar } from '../../components/dashboard/EnhancedCalendar';
 
-// Mise à jour de l'interface pour inclure le groupe
+interface Event {
+  id: string;
+  nom_evenement: string;
+  date_debut: string;
+  date_fin: string;
+  lieu: string | null;
+  statut_evenement: 'brouillon' | 'publie';
+  specialites_requises: string[];
+  regisseur_id: string;
+}
+
 interface PlanningItem {
   id: string;
   heure: string;
@@ -19,46 +27,36 @@ interface PlanningItem {
   groupe: 'artistes' | 'techniques';
 }
 
-interface EventInfoField {
+interface InfoField {
   id: string;
-  type_champ: string;
+  type_champ: 'son' | 'lumiere' | 'plateau' | 'general';
   contenu_texte: string | null;
   chemin_fichier_supabase_storage: string | null;
 }
 
-interface IntermittentAssignment {
+interface Assignment {
   id: string;
-  intermittent_profile_id: string;
+  intermittent_profile: {
+    id: string;
+    nom: string;
+    prenom: string;
+    specialite: string | null;
+  };
   statut_disponibilite: string;
-  nom: string;
-  prenom: string;
-  specialite: string | null;
+  date_reponse: string | null;
 }
-
-// Type pour le statut de sélection des intermittents
-type SelectionStatus = 'selected' | 'not_selected' | 'pending';
 
 export const EventDetails: React.FC = () => {
   const { eventId } = useParams<{ eventId: string }>();
   const navigate = useNavigate();
-  const [eventDetails, setEventDetails] = useState<{
-    id: string;
-    nom_evenement: string;
-    date_debut: string;
-    date_fin: string;
-    lieu: string | null;
-    statut_evenement: string;
-  } | null>(null);
+  const [event, setEvent] = useState<Event | null>(null);
   const [planningItems, setPlanningItems] = useState<PlanningItem[]>([]);
-  const [infoFields, setInfoFields] = useState<EventInfoField[]>([]);
-  const [intermittentAssignments, setIntermittentAssignments] = useState<IntermittentAssignment[]>([]);
-  
-  // Nouveau state pour gérer le statut de sélection de chaque intermittent
-  const [intermittentSelectionStatus, setIntermittentSelectionStatus] = useState<Record<string, SelectionStatus>>({});
-  
+  const [infoFields, setInfoFields] = useState<InfoField[]>([]);
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [isTeamFinalized, setIsTeamFinalized] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showFeuilleDeRouteModal, setShowFeuilleDeRouteModal] = useState(false);
 
   useEffect(() => {
     if (eventId) {
@@ -70,43 +68,44 @@ export const EventDetails: React.FC = () => {
     try {
       setIsLoading(true);
       
-      // Fetch event details
-      const { data: event, error: eventError } = await supabase
+      // Récupérer les informations de l'événement
+      const { data: eventData, error: eventError } = await supabase
         .from('events')
         .select('*')
         .eq('id', eventId)
         .single();
 
       if (eventError) throw eventError;
-      setEventDetails(event);
+      setEvent(eventData);
 
-      // Fetch planning items with groupe
-      const { data: planning, error: planningError } = await supabase
+      // Récupérer les éléments de planning
+      const { data: planningData, error: planningError } = await supabase
         .from('event_planning_items')
-        .select('id, heure, intitule, ordre, groupe')
+        .select('*')
         .eq('event_id', eventId)
         .order('ordre', { ascending: true });
 
       if (planningError) throw planningError;
-      setPlanningItems(planning || []);
+      setPlanningItems(planningData || []);
 
-      // Fetch information fields
-      const { data: info, error: infoError } = await supabase
+      // Récupérer les champs d'information
+      const { data: infoData, error: infoError } = await supabase
         .from('event_information_fields')
         .select('*')
         .eq('event_id', eventId);
 
       if (infoError) throw infoError;
-      setInfoFields(info || []);
+      setInfoFields(infoData || []);
 
-      // Fetch intermittent assignments with profile data
-      const { data: assignments, error: assignmentsError } = await supabase
+      // Récupérer les assignations d'intermittents
+      const { data: assignmentData, error: assignmentError } = await supabase
         .from('event_intermittent_assignments')
         .select(`
           id,
-          intermittent_profile_id,
           statut_disponibilite,
-          intermittent_profiles:intermittent_profile_id (
+          date_reponse,
+          intermittent_profile:intermittent_profiles (
+            id,
             nom,
             prenom,
             specialite
@@ -114,43 +113,8 @@ export const EventDetails: React.FC = () => {
         `)
         .eq('event_id', eventId);
 
-      if (assignmentsError) throw assignmentsError;
-
-      if (assignments) {
-        const formattedAssignments = assignments.map(assignment => ({
-          id: assignment.id,
-          intermittent_profile_id: assignment.intermittent_profile_id,
-          statut_disponibilite: assignment.statut_disponibilite,
-          nom: assignment.intermittent_profiles.nom,
-          prenom: assignment.intermittent_profiles.prenom,
-          specialite: assignment.intermittent_profiles.specialite,
-        }));
-
-        setIntermittentAssignments(formattedAssignments);
-
-        // Check if team is already finalized
-        const isFinalized = formattedAssignments.some(a => 
-          a.statut_disponibilite === 'valide' || a.statut_disponibilite === 'non_retenu'
-        );
-        setIsTeamFinalized(isFinalized);
-
-        // Initialize selection status for each intermittent
-        const initialSelectionStatus: Record<string, SelectionStatus> = {};
-        formattedAssignments.forEach(a => {
-          if (a.statut_disponibilite === 'valide') {
-            initialSelectionStatus[a.intermittent_profile_id] = 'selected';
-          } else if (a.statut_disponibilite === 'non_retenu') {
-            initialSelectionStatus[a.intermittent_profile_id] = 'not_selected';
-          } else if (a.statut_disponibilite === 'disponible' || a.statut_disponibilite === 'incertain') {
-            initialSelectionStatus[a.intermittent_profile_id] = 'pending';
-          } else if (a.statut_disponibilite === 'propose') {
-            initialSelectionStatus[a.intermittent_profile_id] = 'pending';
-          } else {
-            initialSelectionStatus[a.intermittent_profile_id] = 'pending';
-          }
-        });
-        setIntermittentSelectionStatus(initialSelectionStatus);
-      }
+      if (assignmentError) throw assignmentError;
+      setAssignments(assignmentData || []);
 
     } catch (error) {
       console.error('Error fetching event data:', error);
@@ -160,208 +124,112 @@ export const EventDetails: React.FC = () => {
     }
   };
 
-  const handleDeleteEvent = async () => {
+  const handleEdit = () => {
+    // Redirection vers la page de modification avec l'ID de l'événement
+    navigate(`/dashboard/events/edit/${eventId}`);
+  };
+
+  const handleDelete = async () => {
     try {
-      setIsLoading(true);
+      setIsDeleting(true);
       
-      const { error } = await supabase
+      // Supprimer les assignations d'intermittents
+      const { error: assignmentError } = await supabase
+        .from('event_intermittent_assignments')
+        .delete()
+        .eq('event_id', eventId);
+
+      if (assignmentError) throw assignmentError;
+
+      // Supprimer les éléments de planning
+      const { error: planningError } = await supabase
+        .from('event_planning_items')
+        .delete()
+        .eq('event_id', eventId);
+
+      if (planningError) throw planningError;
+
+      // Supprimer les champs d'information
+      const { error: infoError } = await supabase
+        .from('event_information_fields')
+        .delete()
+        .eq('event_id', eventId);
+
+      if (infoError) throw infoError;
+
+      // Supprimer l'événement
+      const { error: eventError } = await supabase
         .from('events')
         .delete()
         .eq('id', eventId);
 
-      if (error) throw error;
-      
+      if (eventError) throw eventError;
+
       toast.success('Événement supprimé avec succès');
       navigate('/dashboard');
     } catch (error) {
       console.error('Error deleting event:', error);
       toast.error('Erreur lors de la suppression de l\'événement');
     } finally {
-      setIsLoading(false);
-      setIsDeleteModalOpen(false);
+      setIsDeleting(false);
+      setShowDeleteModal(false);
     }
   };
 
-  // Fonction pour cycler entre les 3 états de sélection
-  const toggleIntermittentSelection = (intermittentProfileId: string) => {
-    setIntermittentSelectionStatus(prev => {
-      const currentStatus = prev[intermittentProfileId] || 'pending';
-      let newStatus: SelectionStatus;
-      
-      // Cycle entre les états : pending -> selected -> not_selected -> pending
-      if (currentStatus === 'pending') {
-        newStatus = 'selected';
-      } else if (currentStatus === 'selected') {
-        newStatus = 'not_selected';
-      } else {
-        newStatus = 'pending';
-      }
-      
-      return {
-        ...prev,
-        [intermittentProfileId]: newStatus
-      };
-    });
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'propose':
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200';
+      case 'disponible':
+        return 'bg-success-100 text-success-800 dark:bg-success-900/30 dark:text-success-200';
+      case 'incertain':
+        return 'bg-warning-100 text-warning-800 dark:bg-warning-900/30 dark:text-warning-200';
+      case 'non_disponible':
+        return 'bg-error-100 text-error-800 dark:bg-error-900/30 dark:text-error-200';
+      case 'valide':
+        return 'bg-primary-100 text-primary-800 dark:bg-primary-900/30 dark:text-primary-200';
+      case 'non_retenu':
+        return 'bg-gray-100/50 text-gray-600 dark:bg-gray-800/50 dark:text-gray-400';
+      default:
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200';
+    }
   };
 
-  const handleValidateTeam = async () => {
-    try {
-      setIsLoading(true);
-      
-      // Préparer les mises à jour pour chaque intermittent selon son statut de sélection
-      const updates = [];
-      
-      for (const assignment of intermittentAssignments) {
-        const selectionStatus = intermittentSelectionStatus[assignment.intermittent_profile_id];
-        const currentStatus = assignment.statut_disponibilite;
-        
-        // Ne mettre à jour que si l'intermittent a répondu (disponible, incertain) ou s'il est explicitement marqué comme non retenu
-        if (
-          // Cas 1: L'intermittent est sélectionné et a répondu (disponible ou incertain)
-          (selectionStatus === 'selected' && (currentStatus === 'disponible' || currentStatus === 'incertain')) ||
-          // Cas 2: L'intermittent est explicitement non retenu et a répondu
-          (selectionStatus === 'not_selected' && (currentStatus === 'disponible' || currentStatus === 'incertain')) ||
-          // Cas 3: L'intermittent est explicitement non retenu et était en attente
-          (selectionStatus === 'not_selected' && currentStatus === 'propose')
-        ) {
-          updates.push({
-            id: assignment.id,
-            statut_disponibilite: selectionStatus === 'selected' ? 'valide' : 'non_retenu'
-          });
-        }
-        // Les intermittents en 'pending' ou ceux qui n'ont pas encore répondu restent inchangés
-      }
-      
-      // Effectuer les mises à jour en base de données
-      if (updates.length > 0) {
-        for (const update of updates) {
-          const { error } = await supabase
-            .from('event_intermittent_assignments')
-            .update({ statut_disponibilite: update.statut_disponibilite })
-            .eq('id', update.id);
-            
-          if (error) throw error;
-        }
-      }
-      
-      toast.success('Équipe mise à jour avec succès');
-      setIsTeamFinalized(true);
-      fetchEventData(); // Refresh data
-    } catch (error) {
-      console.error('Error validating team:', error);
-      toast.error('Erreur lors de la validation de l\'équipe');
-    } finally {
-      setIsLoading(false);
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'propose':
+        return 'Proposé';
+      case 'disponible':
+        return 'Disponible';
+      case 'incertain':
+        return 'Incertain';
+      case 'non_disponible':
+        return 'Non disponible';
+      case 'valide':
+        return 'Validé';
+      case 'non_retenu':
+        return 'Non retenu';
+      default:
+        return status;
     }
   };
 
   const formatDate = (dateString: string) => {
-    try {
-      const date = new Date(dateString);
-      return format(date, 'PPP à HH:mm', { locale: fr });
-    } catch (e) {
-      return dateString;
-    }
+    const date = new Date(dateString);
+    return date.toLocaleDateString('fr-FR', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
-  const handleDuplicateEvent = async (event: any, startDate: Date) => {
-    try {
-      setIsLoading(true);
-      
-      // Récupérer toutes les données de l'événement actuel
-      const { data: currentEvent, error: eventError } = await supabase
-        .from('events')
-        .select('*')
-        .eq('id', eventId)
-        .single();
-
-      if (eventError) throw eventError;
-      
-      // Calculer la différence de jours entre la date d'origine et la nouvelle date
-      const originalDate = new Date(currentEvent.date_debut);
-      const daysDiff = Math.floor((startDate.getTime() - originalDate.getTime()) / (1000 * 60 * 60 * 24));
-      
-      // Créer les nouvelles dates en ajoutant la différence
-      const newStartDate = new Date(currentEvent.date_debut);
-      newStartDate.setDate(newStartDate.getDate() + daysDiff);
-      
-      const newEndDate = new Date(currentEvent.date_fin);
-      newEndDate.setDate(newEndDate.getDate() + daysDiff);
-      
-      // Créer le nouvel événement
-      const { data: newEvent, error: createError } = await supabase
-        .from('events')
-        .insert({
-          ...currentEvent,
-          id: undefined, // Laisser Supabase générer un nouvel ID
-          date_debut: newStartDate.toISOString(),
-          date_fin: newEndDate.toISOString(),
-          statut_evenement: 'brouillon', // Commencer comme brouillon
-          created_at: new Date().toISOString()
-        })
-        .select()
-        .single();
-
-      if (createError) throw createError;
-      
-      // Récupérer les items de planning actuels
-      const { data: planningItems, error: planningError } = await supabase
-        .from('event_planning_items')
-        .select('*')
-        .eq('event_id', eventId);
-
-      if (planningError) throw planningError;
-      
-      // Dupliquer les items de planning
-      if (planningItems && planningItems.length > 0) {
-        const newPlanningItems = planningItems.map(item => ({
-          ...item,
-          id: undefined, // Laisser Supabase générer un nouvel ID
-          event_id: newEvent.id
-        }));
-        
-        const { error: insertPlanningError } = await supabase
-          .from('event_planning_items')
-          .insert(newPlanningItems);
-          
-        if (insertPlanningError) throw insertPlanningError;
-      }
-      
-      // Récupérer les champs d'information
-      const { data: infoFields, error: infoError } = await supabase
-        .from('event_information_fields')
-        .select('*')
-        .eq('event_id', eventId);
-
-      if (infoError) throw infoError;
-      
-      // Dupliquer les champs d'information
-      if (infoFields && infoFields.length > 0) {
-        const newInfoFields = infoFields.map(field => ({
-          ...field,
-          id: undefined, // Laisser Supabase générer un nouvel ID
-          event_id: newEvent.id
-        }));
-        
-        const { error: insertInfoError } = await supabase
-          .from('event_information_fields')
-          .insert(newInfoFields);
-          
-        if (insertInfoError) throw insertInfoError;
-      }
-      
-      toast.success(`Événement dupliqué pour le ${format(newStartDate, 'PPP', { locale: fr })}`);
-      navigate(`/dashboard/regisseur/events/${newEvent.id}/edit`);
-      
-    } catch (error) {
-      console.error('Error duplicating event:', error);
-      toast.error('Erreur lors de la duplication de l\'événement');
-    } finally {
-      setIsLoading(false);
-    }
+  const getInfoFieldByType = (type: string) => {
+    return infoFields.find(field => field.type_champ === type);
   };
 
-  if (isLoading || !eventDetails) {
+  if (isLoading) {
     return (
       <div className="flex justify-center items-center min-h-[400px]">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -369,465 +237,346 @@ export const EventDetails: React.FC = () => {
     );
   }
 
-  // Group info fields by type
-  const groupedInfoFields: Record<string, EventInfoField[]> = {};
-  infoFields.forEach(field => {
-    if (!groupedInfoFields[field.type_champ]) {
-      groupedInfoFields[field.type_champ] = [];
-    }
-    groupedInfoFields[field.type_champ].push(field);
-  });
-
-  // Group intermittents by status for better UI organization
-  const groupedIntermittents = {
-    valide: intermittentAssignments.filter(a => a.statut_disponibilite === 'valide'),
-    disponible: intermittentAssignments.filter(a => a.statut_disponibilite === 'disponible'),
-    incertain: intermittentAssignments.filter(a => a.statut_disponibilite === 'incertain'),
-    non_disponible: intermittentAssignments.filter(a => a.statut_disponibilite === 'non_disponible'),
-    non_retenu: intermittentAssignments.filter(a => a.statut_disponibilite === 'non_retenu'),
-    propose: intermittentAssignments.filter(a => a.statut_disponibilite === 'propose'),
-    en_attente: intermittentAssignments.filter(a => a.statut_disponibilite === 'en_attente'),
-  };
+  if (!event) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-gray-500 dark:text-gray-400">
+          Événement non trouvé
+        </p>
+        <Button
+          variant="ghost"
+          onClick={() => navigate('/dashboard')}
+          className="mt-4"
+        >
+          Retour au tableau de bord
+        </Button>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-8">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">{eventDetails.nom_evenement}</h1>
-        <div className="flex gap-2">
-          {/* Ajout du bouton de téléchargement de la feuille de route */}
-          <FeuilleDeRouteDownload 
-            event={eventDetails} 
-            planningItems={planningItems} 
-          />
-          <Button
-            variant="outline"
-            onClick={() => navigate(`/dashboard/regisseur/events/${eventId}/edit`)}
-          >
-            <Edit size={18} className="mr-2" />
-            Modifier
-          </Button>
-          <Button
-            variant="danger"
-            onClick={() => setIsDeleteModalOpen(true)}
-          >
-            <Trash2 size={18} className="mr-2" />
-            Supprimer
-          </Button>
+    <>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <Button
+              variant="ghost"
+              onClick={() => navigate('/dashboard')}
+              leftIcon={<ArrowLeft size={20} />}
+            >
+              Retour
+            </Button>
+            <h1 className="text-3xl font-bold">{event.nom_evenement}</h1>
+            <span className={`px-3 py-1 rounded-full text-sm ${
+              event.statut_evenement === 'brouillon' 
+                ? 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200' 
+                : 'bg-success-100 text-success-800 dark:bg-success-900/30 dark:text-success-200'
+            }`}>
+              {event.statut_evenement === 'brouillon' ? 'Brouillon' : 'Publié'}
+            </span>
+          </div>
+          <div className="flex space-x-3">
+            <Button
+              variant="outline"
+              leftIcon={<Download size={18} />}
+              onClick={() => setShowFeuilleDeRouteModal(true)}
+            >
+              Feuille de route
+            </Button>
+            <Button
+              variant="secondary"
+              leftIcon={<Edit size={18} />}
+              onClick={handleEdit}
+            >
+              Modifier
+            </Button>
+            <Button
+              variant="danger"
+              leftIcon={<Trash2 size={18} />}
+              onClick={() => setShowDeleteModal(true)}
+            >
+              Supprimer
+            </Button>
+          </div>
         </div>
-      </div>
 
-      {/* Event details */}
-      <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-6 shadow-lg">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <h2 className="text-xl font-semibold mb-4">Détails de l'événement</h2>
-            <div className="space-y-3">
-              <div>
-                <p className="text-sm text-gray-400">Dates</p>
-                <p>Du {formatDate(eventDetails.date_debut)}</p>
-                <p>Au {formatDate(eventDetails.date_fin)}</p>
-              </div>
-              {eventDetails.lieu && (
-                <div>
-                  <p className="text-sm text-gray-400">Lieu</p>
-                  <p>{eventDetails.lieu}</p>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Informations générales */}
+          <Card glass glow className="lg:col-span-2">
+            <div className="p-6">
+              <h2 className="text-xl font-semibold mb-4">Informations générales</h2>
+              <div className="space-y-4">
+                <div className="flex items-center space-x-3">
+                  <Calendar size={20} className="text-primary-400" />
+                  <div>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Dates
+                    </p>
+                    <p className="font-medium">
+                      Du {formatDate(event.date_debut)} au {formatDate(event.date_fin)}
+                    </p>
+                  </div>
                 </div>
-              )}
-              <div>
-                <p className="text-sm text-gray-400">Statut</p>
-                <div className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                  eventDetails.statut_evenement === 'publie' 
-                    ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' 
-                    : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
-                }`}>
-                  {eventDetails.statut_evenement === 'publie' ? 'Publié' : 'Brouillon'}
+                
+                {event.lieu && (
+                  <div className="flex items-center space-x-3">
+                    <MapPin size={20} className="text-primary-400" />
+                    <div>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        Lieu
+                      </p>
+                      <p className="font-medium">{event.lieu}</p>
+                    </div>
+                  </div>
+                )}
+
+                {event.specialites_requises && event.specialites_requises.length > 0 && (
+                  <div className="flex items-center space-x-3">
+                    <Users size={20} className="text-primary-400" />
+                    <div>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        Spécialités requises
+                      </p>
+                      <div className="flex flex-wrap gap-2 mt-1">
+                        {event.specialites_requises.map((specialite, index) => (
+                          <span 
+                            key={index}
+                            className="px-3 py-1 bg-primary-900/20 text-primary-400 rounded-full text-sm"
+                          >
+                            {specialite.charAt(0).toUpperCase() + specialite.slice(1)}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </Card>
+
+          {/* Statistiques */}
+          <Card glass glow>
+            <div className="p-6">
+              <h2 className="text-xl font-semibold mb-4">Statistiques</h2>
+              <div className="space-y-4">
+                <div className="p-4 bg-dark-800/50 backdrop-blur rounded-lg border border-white/5">
+                  <p className="text-sm text-gray-400">Intermittents assignés</p>
+                  <p className="text-2xl font-display mt-1">{assignments.length}</p>
+                </div>
+                <div className="p-4 bg-dark-800/50 backdrop-blur rounded-lg border border-white/5">
+                  <p className="text-sm text-gray-400">Confirmés</p>
+                  <p className="text-2xl font-display mt-1 text-primary-400">
+                    {assignments.filter(a => a.statut_disponibilite === 'disponible' || a.statut_disponibilite === 'valide').length}
+                  </p>
+                </div>
+                <div className="p-4 bg-dark-800/50 backdrop-blur rounded-lg border border-white/5">
+                  <p className="text-sm text-gray-400">En attente</p>
+                  <p className="text-2xl font-display mt-1 text-warning-400">
+                    {assignments.filter(a => a.statut_disponibilite === 'propose').length}
+                  </p>
                 </div>
               </div>
             </div>
-          </div>
+          </Card>
 
-          {/* Planning de la journée (Feuille de route) */}
-          <div>
-            <h2 className="text-xl font-semibold mb-4">Feuille de route</h2>
-            {planningItems.length === 0 ? (
-              <p className="text-gray-400 italic">Aucun planning défini</p>
-            ) : (
-              <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2">
-                {planningItems.map((item) => (
-                  <div 
-                    key={item.id}
-                    className="flex items-start gap-3 p-3 bg-white/5 rounded-lg border border-white/10"
-                  >
-                    <div className="w-16 font-medium">{item.heure}</div>
-                    <div className="flex-grow">
-                      <p>{item.intitule}</p>
-                    </div>
-                    {/* Badge coloré pour indiquer le groupe */}
-                    <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
-                      item.groupe === 'artistes' 
-                        ? 'bg-primary/20 text-primary border border-primary/30 shadow-sm shadow-primary/10' 
-                        : 'bg-secondary/20 text-secondary border border-secondary/30 shadow-sm shadow-secondary/10'
-                    }`}>
-                      {item.groupe === 'artistes' ? (
-                        <>
-                          <Users size={12} />
-                          <span>Artistes</span>
-                        </>
-                      ) : (
-                        <>
-                          <Wrench size={12} />
-                          <span>Techniques</span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Informations par spécialité */}
-      {Object.keys(groupedInfoFields).length > 0 && (
-        <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-6 shadow-lg">
-          <h2 className="text-xl font-semibold mb-4">Informations par spécialité</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {Object.entries(groupedInfoFields).map(([type, fields]) => (
-              <div key={type} className="bg-white/5 rounded-lg p-4 border border-white/10">
-                <h3 className="font-medium capitalize mb-3">
-                  {type === 'general' ? 'Général' : type}
-                </h3>
-                <div className="space-y-4">
-                  {fields.map(field => (
-                    <div key={field.id}>
-                      {field.contenu_texte && (
-                        <div className="text-sm whitespace-pre-wrap">
-                          {field.contenu_texte}
+          {/* Feuille de route */}
+          <Card glass glow className="lg:col-span-2">
+            <div className="p-6">
+              <h2 className="text-xl font-semibold mb-4">Feuille de route</h2>
+              {planningItems.length > 0 ? (
+                <div className="space-y-3">
+                  {planningItems.map((item) => (
+                    <div
+                      key={item.id}
+                      className={`p-4 rounded-lg border ${
+                        item.groupe === 'artistes'
+                          ? 'border-primary/30 bg-primary/5'
+                          : 'border-secondary/30 bg-secondary/5'
+                      }`}
+                    >
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-16 text-center">
+                            <span className="text-lg font-medium">{item.heure}</span>
+                          </div>
+                          <div>
+                            <p className="font-medium">{item.intitule}</p>
+                          </div>
                         </div>
+                        <span className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs ${
+                          item.groupe === 'artistes'
+                            ? 'bg-primary/20 text-primary-400'
+                            : 'bg-secondary/20 text-secondary-400'
+                        }`}>
+                          {item.groupe === 'artistes' ? (
+                            <><User size={14} /> Artistes</>
+                          ) : (
+                            <><Wrench size={14} /> Techniques</>
+                          )}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-center text-gray-500 dark:text-gray-400 py-4">
+                  Aucun élément dans la feuille de route
+                </p>
+              )}
+            </div>
+          </Card>
+
+          {/* Informations par spécialité */}
+          <Card glass glow>
+            <div className="p-6">
+              <h2 className="text-xl font-semibold mb-4">Informations par spécialité</h2>
+              <div className="space-y-4">
+                {['son', 'lumiere', 'plateau', 'general'].map((type) => {
+                  const field = getInfoFieldByType(type);
+                  if (!field || (!field.contenu_texte && !field.chemin_fichier_supabase_storage)) {
+                    return null;
+                  }
+                  
+                  return (
+                    <div key={type} className="p-4 bg-white/5 rounded-lg border border-white/10">
+                      <h3 className="font-medium mb-2 capitalize">
+                        {type === 'general' ? 'Général' : type}
+                      </h3>
+                      {field.contenu_texte && (
+                        <p className="text-gray-300 whitespace-pre-wrap">{field.contenu_texte}</p>
                       )}
                       {field.chemin_fichier_supabase_storage && (
                         <a
                           href={field.chemin_fichier_supabase_storage}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-primary hover:underline text-sm flex items-center gap-1 mt-2"
+                          className="inline-flex items-center mt-2 text-primary-400 hover:underline"
                         >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-                            <polyline points="15 3 21 3 21 9"></polyline>
-                            <line x1="10" y1="14" x2="21" y2="3"></line>
-                          </svg>
-                          Fichier lié
+                          <Download size={16} className="mr-1" />
+                          Télécharger le fichier
                         </a>
                       )}
                     </div>
-                  ))}
-                </div>
+                  );
+                })}
+                
+                {!infoFields.length && (
+                  <p className="text-center text-gray-500 dark:text-gray-400 py-4">
+                    Aucune information spécifique
+                  </p>
+                )}
               </div>
-            ))}
-          </div>
-        </div>
-      )}
+            </div>
+          </Card>
 
-      {/* Intermittents */}
-      <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-6 shadow-lg">
-        <h2 className="text-xl font-semibold mb-4">Intermittents</h2>
-        
-        {intermittentAssignments.length === 0 ? (
-          <p className="text-gray-400 italic">Aucun intermittent assigné à cet événement</p>
-        ) : (
-          <div className="space-y-6">
-            {/* Validated team */}
-            {groupedIntermittents.valide.length > 0 && (
-              <div>
-                <h3 className="font-medium text-green-400 mb-3">Équipe validée</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {groupedIntermittents.valide.map(assignment => (
+          {/* Assignations d'intermittents */}
+          <Card glass glow className="lg:col-span-3">
+            <div className="p-6">
+              <h2 className="text-xl font-semibold mb-4">Intermittents assignés</h2>
+              {assignments.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {assignments.map((assignment) => (
                     <div
                       key={assignment.id}
-                      className="p-3 bg-green-900/20 border border-green-500/30 rounded-lg"
+                      className="p-4 bg-white/5 rounded-lg border border-white/10 hover:border-primary/30 transition-all"
+                      onClick={() => navigate(`/dashboard/intermittents/profile/${assignment.intermittent_profile.id}`)}
+                      role="button"
                     >
-                      <p className="font-medium">{assignment.prenom} {assignment.nom}</p>
-                      {assignment.specialite && (
-                        <p className="text-sm text-gray-400">{assignment.specialite}</p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            
-            {/* Available intermittents with 3-state selection */}
-            {(groupedIntermittents.disponible.length > 0 || groupedIntermittents.incertain.length > 0 || groupedIntermittents.propose.length > 0) && (
-              <div>
-                <div className="flex justify-between items-center mb-3">
-                  <h3 className="font-medium">Intermittents disponibles</h3>
-                  <div className="flex items-center gap-4 text-sm text-gray-400">
-                    <div className="flex items-center gap-1">
-                      <div className="w-3 h-3 rounded-full bg-green-400"></div>
-                      <span>Sélectionné</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <div className="w-3 h-3 rounded-full bg-red-400"></div>
-                      <span>Non retenu</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <div className="w-3 h-3 rounded-full bg-gray-400"></div>
-                      <span>En attente</span>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {/* Disponible */}
-                  {groupedIntermittents.disponible.map(assignment => (
-                    <div
-                      key={assignment.id}
-                      onClick={() => toggleIntermittentSelection(assignment.intermittent_profile_id)}
-                      className={`p-3 rounded-lg cursor-pointer transition-all flex items-center justify-between border ${
-                        intermittentSelectionStatus[assignment.intermittent_profile_id] === 'selected'
-                          ? 'bg-green-900/20 border-green-500/30'
-                          : intermittentSelectionStatus[assignment.intermittent_profile_id] === 'not_selected'
-                          ? 'bg-red-900/20 border-red-500/30'
-                          : 'bg-white/5 border-white/10 hover:bg-white/10'
-                      }`}
-                    >
-                      <div>
-                        <p className="font-medium">{assignment.prenom} {assignment.nom}</p>
-                        <div className="flex items-center gap-2">
-                          {assignment.specialite && (
-                            <p className="text-sm text-gray-400">{assignment.specialite}</p>
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h3 className="font-medium">
+                            {assignment.intermittent_profile.prenom} {assignment.intermittent_profile.nom}
+                          </h3>
+                          {assignment.intermittent_profile.specialite && (
+                            <p className="text-sm text-gray-400">
+                              {assignment.intermittent_profile.specialite}
+                            </p>
                           )}
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
-                            Disponible
-                          </span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        {intermittentSelectionStatus[assignment.intermittent_profile_id] === 'selected' ? (
-                          <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center">
-                            <Check size={14} className="text-white" />
-                          </div>
-                        ) : intermittentSelectionStatus[assignment.intermittent_profile_id] === 'not_selected' ? (
-                          <div className="w-6 h-6 rounded-full bg-red-500 flex items-center justify-center">
-                            <X size={14} className="text-white" />
-                          </div>
-                        ) : (
-                          <div className="w-6 h-6 rounded-full bg-gray-500/50 flex items-center justify-center">
-                            <Clock size={14} className="text-white" />
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                  
-                  {/* Incertain */}
-                  {groupedIntermittents.incertain.map(assignment => (
-                    <div
-                      key={assignment.id}
-                      onClick={() => toggleIntermittentSelection(assignment.intermittent_profile_id)}
-                      className={`p-3 rounded-lg cursor-pointer transition-all flex items-center justify-between border ${
-                        intermittentSelectionStatus[assignment.intermittent_profile_id] === 'selected'
-                          ? 'bg-green-900/20 border-green-500/30'
-                          : intermittentSelectionStatus[assignment.intermittent_profile_id] === 'not_selected'
-                          ? 'bg-red-900/20 border-red-500/30'
-                          : 'bg-white/5 border-white/10 hover:bg-white/10'
-                      }`}
-                    >
-                      <div>
-                        <p className="font-medium">{assignment.prenom} {assignment.nom}</p>
-                        <div className="flex items-center gap-2">
-                          {assignment.specialite && (
-                            <p className="text-sm text-gray-400">{assignment.specialite}</p>
+                          {assignment.date_reponse && (
+                            <p className="text-xs text-gray-500 mt-1">
+                              Réponse le {new Date(assignment.date_reponse).toLocaleDateString('fr-FR')}
+                            </p>
                           )}
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
-                            Incertain
-                          </span>
                         </div>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        {intermittentSelectionStatus[assignment.intermittent_profile_id] === 'selected' ? (
-                          <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center">
-                            <Check size={14} className="text-white" />
-                          </div>
-                        ) : intermittentSelectionStatus[assignment.intermittent_profile_id] === 'not_selected' ? (
-                          <div className="w-6 h-6 rounded-full bg-red-500 flex items-center justify-center">
-                            <X size={14} className="text-white" />
-                          </div>
-                        ) : (
-                          <div className="w-6 h-6 rounded-full bg-gray-500/50 flex items-center justify-center">
-                            <Clock size={14} className="text-white" />
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                  
-                  {/* Proposé (en attente de réponse) */}
-                  {groupedIntermittents.propose.map(assignment => (
-                    <div
-                      key={assignment.id}
-                      onClick={() => toggleIntermittentSelection(assignment.intermittent_profile_id)}
-                      className={`p-3 rounded-lg cursor-pointer transition-all flex items-center justify-between border ${
-                        intermittentSelectionStatus[assignment.intermittent_profile_id] === 'selected'
-                          ? 'bg-green-900/20 border-green-500/30'
-                          : intermittentSelectionStatus[assignment.intermittent_profile_id] === 'not_selected'
-                          ? 'bg-red-900/20 border-red-500/30'
-                          : 'bg-white/5 border-white/10 hover:bg-white/10'
-                      }`}
-                    >
-                      <div>
-                        <p className="font-medium">{assignment.prenom} {assignment.nom}</p>
-                        <div className="flex items-center gap-2">
-                          {assignment.specialite && (
-                            <p className="text-sm text-gray-400">{assignment.specialite}</p>
-                          )}
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
-                            En attente de réponse
-                          </span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        {intermittentSelectionStatus[assignment.intermittent_profile_id] === 'selected' ? (
-                          <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center">
-                            <Check size={14} className="text-white" />
-                          </div>
-                        ) : intermittentSelectionStatus[assignment.intermittent_profile_id] === 'not_selected' ? (
-                          <div className="w-6 h-6 rounded-full bg-red-500 flex items-center justify-center">
-                            <X size={14} className="text-white" />
-                          </div>
-                        ) : (
-                          <div className="w-6 h-6 rounded-full bg-gray-500/50 flex items-center justify-center">
-                            <Clock size={14} className="text-white" />
-                          </div>
-                        )}
+                        <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(assignment.statut_disponibilite)}`}>
+                          {getStatusLabel(assignment.statut_disponibilite)}
+                        </span>
                       </div>
                     </div>
                   ))}
                 </div>
-                
-                <div className="mt-4 flex justify-end">
-                  <Button
-                    variant="primary"
-                    onClick={handleValidateTeam}
-                    disabled={isLoading}
-                  >
-                    {isLoading ? (
-                      <div className="flex items-center gap-2">
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                        <span>En cours...</span>
-                      </div>
-                    ) : (
-                      <span>Mettre à jour l'équipe</span>
-                    )}
-                  </Button>
-                </div>
-              </div>
-            )}
-            
-            {/* Not available */}
-            {groupedIntermittents.non_disponible.length > 0 && (
-              <div>
-                <h3 className="font-medium text-red-400 mb-3">Non disponibles</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {groupedIntermittents.non_disponible.map(assignment => (
-                    <div
-                      key={assignment.id}
-                      className="p-3 bg-red-900/20 border border-red-500/30 rounded-lg"
-                    >
-                      <p className="font-medium">{assignment.prenom} {assignment.nom}</p>
-                      {assignment.specialite && (
-                        <p className="text-sm text-gray-400">{assignment.specialite}</p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            
-            {/* Not selected */}
-            {groupedIntermittents.non_retenu.length > 0 && (
-              <div>
-                <h3 className="font-medium text-gray-400 mb-3">Non retenus</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {groupedIntermittents.non_retenu.map(assignment => (
-                    <div
-                      key={assignment.id}
-                      className="p-3 bg-gray-900/20 border border-gray-500/30 rounded-lg"
-                    >
-                      <p className="font-medium">{assignment.prenom} {assignment.nom}</p>
-                      {assignment.specialite && (
-                        <p className="text-sm text-gray-400">{assignment.specialite}</p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+              ) : (
+                <p className="text-center text-gray-500 dark:text-gray-400 py-4">
+                  Aucun intermittent assigné
+                </p>
+              )}
+            </div>
+          </Card>
+        </div>
       </div>
 
-      {/* Delete confirmation modal */}
+      {/* Modale de confirmation de suppression */}
       <AnimatePresence>
-        {isDeleteModalOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-            onClick={() => setIsDeleteModalOpen(false)}
-          >
+        {showDeleteModal && (
+          <>
             <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              transition={{ type: "spring", damping: 20 }}
-              className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-6 max-w-md w-full shadow-xl"
-              onClick={(e) => e.stopPropagation()}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
+              onClick={() => !isDeleting && setShowDeleteModal(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-dark-800 rounded-xl shadow-xl z-50 p-6"
             >
-              <h3 className="text-xl font-bold mb-4">Confirmer la suppression</h3>
-              <p className="mb-6">
-                Êtes-vous sûr de vouloir supprimer cet événement ? Cette action est irréversible.
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-3 rounded-full bg-red-900/20">
+                  <AlertTriangle size={24} className="text-red-400" />
+                </div>
+                <h3 className="text-xl font-bold">Confirmer la suppression</h3>
+              </div>
+              
+              <p className="mb-6 text-gray-300">
+                Êtes-vous sûr de vouloir supprimer l'événement "{event.nom_evenement}" ? 
+                Cette action supprimera également toutes les assignations et informations associées.
+                Elle est irréversible.
               </p>
-              <div className="flex justify-end gap-3">
+              
+              <div className="flex justify-end space-x-3">
                 <Button
-                  variant="outline"
-                  onClick={() => setIsDeleteModalOpen(false)}
-                  disabled={isLoading}
+                  variant="ghost"
+                  onClick={() => !isDeleting && setShowDeleteModal(false)}
+                  disabled={isDeleting}
                 >
+                  <X size={18} className="mr-2" />
                   Annuler
                 </Button>
                 <Button
                   variant="danger"
-                  onClick={handleDeleteEvent}
-                  disabled={isLoading}
+                  onClick={handleDelete}
+                  isLoading={isDeleting}
                 >
-                  {isLoading ? (
-                    <div className="flex items-center gap-2">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                      <span>En cours...</span>
-                    </div>
-                  ) : (
-                    <span>Supprimer</span>
-                  )}
+                  <Trash2 size={18} className="mr-2" />
+                  Supprimer définitivement
                 </Button>
               </div>
             </motion.div>
-          </motion.div>
+          </>
         )}
       </AnimatePresence>
-    </div>
+
+      {/* Modale pour la feuille de route */}
+      <AnimatePresence>
+        {showFeuilleDeRouteModal && (
+          <FeuilleDeRouteDownload
+            eventId={eventId!}
+            onClose={() => setShowFeuilleDeRouteModal(false)}
+          />
+        )}
+      </AnimatePresence>
+    </>
   );
 };
