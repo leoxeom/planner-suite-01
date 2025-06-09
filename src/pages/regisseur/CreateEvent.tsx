@@ -382,12 +382,15 @@ export const CreateEvent: React.FC = () => {
         if (assignmentError) throw assignmentError;
       }
 
+      // Amélioration du message de feedback selon le statut
       toast.success(
         isEditMode
-          ? 'Événement mis à jour avec succès'
-          : 'Événement créé avec succès'
+          ? `Événement mis à jour avec succès (${publish ? 'Publié' : 'Brouillon'})`
+          : `Événement créé avec succès (${publish ? 'Publié' : 'Brouillon'})`
       );
-      navigate(`/dashboard/regisseur/events/${currentEventId}`);
+      
+      // Correction de la redirection
+      navigate(`/dashboard/events/${currentEventId}`);
     } catch (error) {
       console.error('Error submitting event:', error);
       toast.error('Erreur lors de la soumission de l\'événement');
@@ -460,10 +463,7 @@ export const CreateEvent: React.FC = () => {
             />
           </div>
         </div>
-      </div>
-
-      {/* Planning de la journée (Feuille de route) */}
-      <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-6 shadow-lg">
+      </div>lassName="bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-6 shadow-lg">
         <h2 className="text-xl font-semibold mb-4">Feuille de route</h2>
         <div className="space-y-4">
           {planningItems.map((item, index) => (
