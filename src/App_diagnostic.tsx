@@ -3,7 +3,6 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import DiagnosticPage from './pages/DiagnosticPage';
 import { initializeAuth } from './store/authStore';
 import { initializeTheme } from './store/themeStore';
-import { initializeProfile } from './store/profileStore';
 
 /**
  * Version simplifiée de App.tsx pour le diagnostic
@@ -20,11 +19,6 @@ function App() {
     
     // Initialiser le thème
     initializeTheme();
-    
-    // Initialiser le profil (après auth)
-    setTimeout(() => {
-      initializeProfile();
-    }, 500);
     
     return cleanup;
   }, []);
