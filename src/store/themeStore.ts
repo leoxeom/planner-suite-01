@@ -140,72 +140,47 @@ export const useThemeStore = create<ThemeState>((set, get) => {
       set({ isLoading: true, error: null });
 
       try {
-        let themeData;
-
+        // Couleurs par défaut
+        const defaultPrimary = '#007FFF';
+        const defaultSecondary = '#F72798';
+        const defaultBorderRadius = 12;
+        
         if (role === 'regisseur') {
           // Fetch regisseur's own theme
           const { data, error } = await supabase
             .from('regisseur_profiles')
-            .select('nom_organisme, logo_url, couleur_gradient_1, couleur_gradient_2, global_border_radius')
+            .select('organisation, logo_path')
             .eq('user_id', userId)
             .single();
 
           if (error) throw error;
-          themeData = data;
-        } else {
-          // For intermittents, first get their organisme_principal_id
-          const { data: intermittentData, error: intermittentError } = await supabase
-            .from('intermittent_profiles')
-            .select('organisme_principal_id')
-            .eq('user_id', userId)
-            .single();
-
-          if (intermittentError) throw intermittentError;
-
-          if (intermittentData?.organisme_principal_id) {
-            // Then fetch the regisseur's theme
-            const { data, error } = await supabase
-              .from('regisseur_profiles')
-              .select('nom_organisme, logo_url, couleur_gradient_1, couleur_gradient_2, global_border_radius')
-              .eq('user_id', intermittentData.organisme_principal_id)
-              .single();
-
-            if (error) throw error;
-            themeData = data;
-          }
-        }
-
-        if (themeData) {
-          // Appliquer le thème aux variables CSS avec la nouvelle fonction
-          applyColorsToCSS(
-            themeData.couleur_gradient_1,
-            themeData.couleur_gradient_2
-          );
           
-          // Appliquer le border radius
-          document.documentElement.style.setProperty('--global-border-radius', `${themeData.global_border_radius}px`);
+          // Appliquer le thème par défaut
+          applyColorsToCSS(defaultPrimary, defaultSecondary);
+          document.documentElement.style.setProperty('--global-border-radius', `${defaultBorderRadius}px`);
 
           set({
             colors: {
-              primary: themeData.couleur_gradient_1,
-              secondary: themeData.couleur_gradient_2
+              primary: defaultPrimary,
+              secondary: defaultSecondary
             },
-            borderRadius: themeData.global_border_radius,
-            organizationName: themeData.nom_organisme,
-            logoUrl: themeData.logo_url,
+            borderRadius: defaultBorderRadius,
+            organizationName: data?.organisation || null,
+            logoUrl: data?.logo_path || null,
             isLoading: false
           });
         } else {
-          // Utiliser le thème par défaut
-          applyColorsToCSS('#007FFF', '#F72798');
-          document.documentElement.style.setProperty('--global-border-radius', '12px');
+          // Pour les intermittents, utiliser simplement le thème par défaut
+          // sans faire de requête inutile qui pourrait échouer
+          applyColorsToCSS(defaultPrimary, defaultSecondary);
+          document.documentElement.style.setProperty('--global-border-radius', `${defaultBorderRadius}px`);
 
           set({
             colors: {
-              primary: '#007FFF',
-              secondary: '#F72798'
+              primary: defaultPrimary,
+              secondary: defaultSecondary
             },
-            borderRadius: 12,
+            borderRadius: defaultBorderRadius,
             organizationName: null,
             logoUrl: null,
             isLoading: false
@@ -213,7 +188,19 @@ export const useThemeStore = create<ThemeState>((set, get) => {
         }
       } catch (error) {
         console.error('Error fetching theme:', error);
-        set({ error: 'Failed to load theme', isLoading: false });
+        // Appliquer le thème par défaut en cas d'erreur
+        applyColorsToCSS('#007FFF', '#F72798');
+        document.documentElement.style.setProperty('--global-border-radius', '12px');
+        
+        set({ 
+          error: 'Failed to load theme', 
+          isLoading: false,
+          colors: {
+            primary: '#007FFF',
+            secondary: '#F72798'
+          },
+          borderRadius: 12
+        });
       }
     }
   };
