@@ -23,6 +23,7 @@ import { ProtectedRoute } from './components/dashboard/ProtectedRoute';
 import { LoadingScreen } from './components/common/LoadingScreen';
 import { initializeAuth, useAuthStore } from './store/authStore';
 import { useThemeStore } from './store/themeStore';
+import { SimpleDashboard } from './components/debug/SimpleDashboard';
 
 const UnauthorizedPage = () => (
   <div className="min-h-screen bg-gray-100 dark:bg-dark-950 flex items-center justify-center">
@@ -77,12 +78,8 @@ function App() {
               </ProtectedRoute>
             }
           >
-            {/* Common dashboard */}
-            <Route index element={
-              user?.role === 'regisseur' 
-                ? <RegisseurDashboard /> 
-                : <IntermittentDashboard />
-            } />
+            {/* Common dashboard - Remplacé par SimpleDashboard pour le débogage */}
+            <Route index element={<SimpleDashboard />} />
 
             {/* Events routes */}
             <Route path="calendar" element={
