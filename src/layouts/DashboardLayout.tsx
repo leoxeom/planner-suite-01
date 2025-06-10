@@ -18,8 +18,21 @@ export const DashboardLayout: React.FC = () => {
   
   useEffect(() => {
     if (user?.role === 'regisseur') {
-      fetchRegisseurProfile(user.id);
-      fetchNotifications(user.id);
+      // Entourer fetchRegisseurProfile dans un try-catch pour éviter les crash
+      try {
+        fetchRegisseurProfile(user.id);
+      } catch (error) {
+        console.error('[DashboardLayout] Erreur lors du chargement du profil régisseur:', error);
+        // Ne pas afficher de toast pour éviter de spammer l'utilisateur
+      }
+      
+      // Entourer fetchNotifications dans un try-catch séparé pour éviter les crash
+      try {
+        fetchNotifications(user.id);
+      } catch (error) {
+        console.error('[DashboardLayout] Erreur lors du chargement des notifications:', error);
+        // Ne pas afficher de toast pour éviter de spammer l'utilisateur
+      }
     }
   }, [user]);
 
@@ -49,7 +62,7 @@ export const DashboardLayout: React.FC = () => {
       <header className="fixed top-0 left-0 right-0 z-40 px-4 py-3 glass">
         <div className="container mx-auto flex items-center justify-between">
           {user?.role === 'regisseur' && regisseurProfile && (
-            <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-4">
               {regisseurProfile.logo_url && (
                 <img 
                   src={regisseurProfile.logo_url} 
@@ -57,10 +70,10 @@ export const DashboardLayout: React.FC = () => {
                   className="h-8 w-auto"
                 />
               )}
-              <h2 className="font-heading font-semibold text-lg tracking-wider text-white truncate">
+            <h2 className="font-heading font-semibold text-lg tracking-wider text-white truncate">
                 {regisseurProfile.nom_organisme || 'STAGEPLANNER'}
-              </h2>
-            </div>
+            </h2>
+          </div>
           )}
           
           <div className="flex items-center space-x-4">
