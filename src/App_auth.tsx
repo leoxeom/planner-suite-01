@@ -9,10 +9,19 @@ initializeAuth();
 // Composant de login utilisant le vrai authStore
 const LoginPage = () => {
   const navigate = useNavigate();
-  const { signIn } = useAuthStore();
+  const { signIn, user } = useAuthStore();
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [loginSuccess, setLoginSuccess] = useState(false);
+
+  // Surveiller les changements de user pour naviguer automatiquement
+  useEffect(() => {
+    if (user && loginSuccess) {
+      console.log("User détecté, navigation vers dashboard...");
+      navigate('/dashboard');
+    }
+  }, [user, loginSuccess, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,11 +37,9 @@ const LoginPage = () => {
       }
       
       toast.success('Connexion réussie');
+      setLoginSuccess(true);
+      // Ne pas naviguer ici, laisser le useEffect s'en charger
       
-      // Attendre que l'état soit mis à jour avant de naviguer
-      setTimeout(() => {
-        navigate('/dashboard');
-      }, 300);
     } catch (error) {
       console.error('Erreur de connexion:', error);
       toast.error('Erreur lors de la connexion');
