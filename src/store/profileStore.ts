@@ -10,7 +10,9 @@ interface RegisseurProfile {
   email: string;
   telephone?: string;
   organisation?: string;
+  nom_organisme?: string;
   logo_path?: string;
+  logo_url?: string;
   profil_complete: boolean;
 }
 
@@ -39,6 +41,7 @@ const defaultRegisseurProfile: RegisseurProfile = {
   prenom: 'Nouveau',
   email: '',
   organisation: 'Organisation',
+  nom_organisme: 'STAGEPLANNER',
   profil_complete: false
 };
 
@@ -60,6 +63,7 @@ interface ProfileState {
   isLoading: boolean;
   error: string | null;
   fetchProfile: () => Promise<void>;
+  fetchRegisseurProfile: (userId: string) => Promise<void>;
   updateRegisseurProfile: (profile: Partial<RegisseurProfile>) => Promise<void>;
   updateIntermittentProfile: (profile: Partial<IntermittentProfile>) => Promise<void>;
 }
@@ -161,6 +165,52 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
         // Fournir des profils par défaut pour éviter les crashes
         regisseurProfile: { ...defaultRegisseurProfile },
         intermittentProfile: null
+      });
+    }
+  },
+
+  // Nouvelle fonction pour récupérer le profil d'un régisseur spécifique
+  fetchRegisseurProfile: async (userId) => {
+    console.debug('[ProfileStore] Fetching regisseur profile for user:', userId);
+    set({ isLoading: true, error: null });
+    
+    try {
+      const { data, error } = await supabase
+        .from('regisseur_profiles')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
+      
+      if (error) {
+        console.error('[ProfileStore] Error fetching regisseur profile:', error);
+        throw error;
+      }
+      
+      if (data) {
+        console.debug('[ProfileStore] Regisseur profile found');
+        set({ 
+          regisseurProfile: data as RegisseurProfile, 
+          isLoading: false 
+        });
+      } else {
+        console.debug('[ProfileStore] No regisseur profile found, using defaults');
+        set({ 
+          regisseurProfile: {
+            ...defaultRegisseurProfile,
+            user_id: userId
+          },
+          isLoading: false 
+        });
+      }
+    } catch (error) {
+      console.error('[ProfileStore] Error fetching regisseur profile:', error);
+      set({ 
+        error: 'Erreur lors de la récupération du profil régisseur', 
+        isLoading: false,
+        regisseurProfile: { 
+          ...defaultRegisseurProfile,
+          user_id: userId
+        }
       });
     }
   },
